@@ -1,0 +1,55 @@
+Context for Generated CSV Datasets (Order → Item Types / Quantities / Totes)
+
+Overview
+These three CSV files together describe a set of customer orders for a picking / sortation problem. Each order can contain 1–3 distinct item types. For every item type included in an order, the generator also outputs:
+1) the quantity requested of that item type, and
+2) the tote/bin number that item type is assigned to.
+
+Files Produced
+1) order_itemtypes.csv
+   - Meaning: Which item type(s) are included in each order.
+   - Structure: Each row is one order. Each column is an “item slot” within that order (1st item, 2nd item, 3rd item).
+   - Values: Integer item type IDs.
+   - Note: The generator uses 0-based IDs (e.g., item type 0 is the first type). If your downstream model assumes 1-based labels, add +1 to every non-empty entry.
+
+2) order_quantities.csv
+   - Meaning: How many units are required for each item type listed in order_itemtypes.csv.
+   - Structure: Same shape as order_itemtypes.csv (rows = orders; columns = item slots).
+   - Values: Positive integer quantities (currently 1–3).
+
+3) orders_totes.csv  (a.k.a. “tote number”)
+   - Meaning: Which tote/bin each item slot in the order is routed to.
+   - Structure: Same shape as order_itemtypes.csv (rows = orders; columns = item slots).
+   - Values: Integer tote IDs in the range [0, n_totes-1] (0-based). If you want tote numbers 1..n_totes for presentation, add +1.
+
+How the Files Relate (Key Point)
+The three files are aligned by (row, column). For a given order i and item-slot j:
+
+  item_type  = order_itemtypes[i, j]
+  quantity   = order_quantities[i, j]
+  tote_id    = orders_totes[i, j]
+
+So you should interpret the triplet at the same (i, j) position across the three CSVs as a single “order line”:
+(Order i contains quantity units of item_type, assigned to tote_id.)
+
+Handling Variable-Length Orders
+Orders can have fewer than the maximum number of item slots (max is currently 3). When saved to CSV via a pandas DataFrame, missing item slots appear as blank/empty cells.
+- If a cell is blank in order_itemtypes.csv, the corresponding cells in order_quantities.csv and orders_totes.csv should be treated as “no item” (ignore those positions).
+
+Example (matches the attached diagram’s intent)
+Suppose Order 3 has two item slots populated:
+- order_itemtypes row 3:   [3, 4,  ]
+- order_quantities row 3:  [1, 1,  ]
+- orders_totes row 3:      [1, 3,  ]
+
+Interpretation:
+- Order 3 includes item type 3 (quantity 1) assigned to tote 1.
+- Order 3 includes item type 4 (quantity 1) assigned to tote 3.
+- The third slot is empty (no third item type in this order).
+
+Notes on Generation Logic (useful for validation)
+- Each order’s item types are sampled without replacement (distinct types within an order).
+- Each quantity is sampled independently per item slot (currently 1–3).
+- Tote assignment is done per item slot:
+    * The first item slot gets a random tote.
+    * Subsequent item slots either reuse that first tote (50% chance) or get a new random tote.
