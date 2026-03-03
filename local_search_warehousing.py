@@ -547,7 +547,8 @@ def write_conveyor_input_csv(
         writer.writerow(["conv_num"] + ITEM_NAMES)
         for event in event_log:
             counts = list(event["items"])
-            writer.writerow([event["conv"]] + counts)
+            # Output 1-based conveyor index (1, 2, 3, 4)
+            writer.writerow([event["conv"] + 1] + counts)
 
 
 def write_tote_sequence_csv(
