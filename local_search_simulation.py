@@ -5,7 +5,7 @@ Local Search Algorithm for Conveyor Belt Order Consolidation & Sortation
 === PROBLEM OVERVIEW ===
 
 Four conveyor belts (parallel machines) form a circular loop:
-    LOAD -> conv0 -> conv1 -> conv2 -> conv3 -> back to LOAD
+    LOAD -> conv1 -> conv2 -> conv3 -> conv4 -> back to LOAD
 
 Items are loaded from totes onto the belt one at a time. Each conveyor has
 a pneumatic arm that pushes items off when a scanner detects they belong to
@@ -141,7 +141,7 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
 
     Timing model
     ------------
-    Belt positions: LOAD -> conv0 -> conv1 -> conv2 -> conv3 -> LOAD
+    Belt positions: LOAD -> conv1 -> conv2 -> conv3 -> conv4 -> LOAD
 
     Item placed on belt at time T, destined for conveyor c:
         arrival_time = T + TIME_PER_SEGMENT * (c + 1)
@@ -498,7 +498,7 @@ def write_schedule_csv(conv_queues, orders, path):
                 counts = [0] * NUM_ITEM_TYPES
                 for item_type, qty in orders[oid]['items']:
                     counts[item_type] += qty
-                writer.writerow([ci] + counts)
+                writer.writerow([ci + 1] + counts)
     print(f"    -> {path}")
 
 
