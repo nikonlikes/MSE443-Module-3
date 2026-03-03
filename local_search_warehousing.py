@@ -1,743 +1,832 @@
 """
-Local Search for Warehousing Conveyor Scheduling
-------------------------------------------------
+MSE 433 - Module 3: Warehousing
+Local Search Algorithm for Conveyor Belt Order Consolidation & Sortation
 
-This module implements a simple local search heuristic for the conveyor
-system described in the MSE 433 Module 3 materials.
+=== PROBLEM OVERVIEW ===
 
-Decisions:
-  1. Order assignment to conveyors and sequence on each conveyor
-  2. Sequence of totes
-  3. Sequence of items within each tote row (here: fixed strategy 'furthest_first')
+Four conveyor belts (parallel machines) form a circular loop:
+    LOAD -> conv0 -> conv1 -> conv2 -> conv3 -> back to LOAD
 
-The search operates on:
-  - belt_assignment: list of lists of order IDs, one list per conveyor
-  - tote_sequence  : list of tote IDs (integers)
+Items are loaded from totes onto the belt one at a time. Each conveyor has
+a pneumatic arm that pushes items off when a scanner detects they belong to
+the current order. One order bin sits at each conveyor at a time; when that
+order is filled, the next order in that conveyor's queue becomes active.
 
-Given these, compute_makespan() simulates the system and returns the
-resulting makespan (time when the last order finishes).
+=== THREE DECISION VARIABLES ===
 
-Two neighborhoods are used:
-  - Tote swap: swap two totes in the tote_sequence
-  - Order move: move a single order to a different conveyor (any position)
+1. Conveyor order assignment — which orders go on which belt, in what queue order.
+2. Tote sequence            — the global order in which totes are loaded onto the belt.
+3. Item sequence per tote   — within a tote, the order of conveyor-row placements.
 
-First-improvement local search:
-  - Iterate through neighbors in a fixed order
-  - As soon as a strictly better neighbor is found, move to it
-  - Stop when no improving neighbor exists or max_iterations is reached
+=== LOCAL SEARCH NEIGHBORHOODS ===
 
-Only the Python standard library is used.
+1. Tote swap  — swap two totes' positions in the tote sequence.
+2. Order move — move one order from its belt to a different belt at any position.
+
+Strategy: first-improvement (accept the first neighbor that improves makespan).
+
+=== TIME COMPLEXITY ===
+
+Let T = #totes, I = max items per tote, N = #orders, C = #conveyors, P = max queue length.
+
+  compute_makespan : O(T * I)                per call
+  Tote swap scan   : O(T^2)   neighbors  x  O(T*I)  = O(T^3 * I)     per iteration
+  Order move scan  : O(N*C*P) neighbors  x  O(T*I)  = O(N*C*P*T*I)   per iteration
+
+With first-improvement, the expected cost per iteration is much lower than the worst
+case because the search stops as soon as any improving neighbor is found.
+
+Total worst case: O(max_iter * (T^3*I + N*C*P*T*I))
+For this dataset (T~15, N=11, C=4, P~4, I~5): each iteration examines at most
+~105 tote swaps + ~528 order moves, each costing ~75 operations => very fast.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Iterable, Optional
-
 import csv
+import os
 import copy
+import time as time_module
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Basic model parameters (can be tuned if needed)
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# TUNABLE PARAMETERS  (calibrate after physical conveyor testing)
+# ─────────────────────────────────────────────────────────────────────────────
+TIME_PER_SEGMENT      = 20.0   # seconds between adjacent belt positions
+LOOP_TIME             = 4 * TIME_PER_SEGMENT  # full belt circulation (80 s)
+TOTE_LOAD_TIME        = 5.0    # seconds to physically place a tote on the belt
+TIME_PER_ITEM_SPACING = 2.0    # seconds between consecutive items placed on belt
+NUM_CONVEYORS         = 4
+NUM_ITEM_TYPES        = 8
 
-TIME_PER_SEGMENT = 20.0        # seconds between belt positions
-LOOP_TIME = 4 * TIME_PER_SEGMENT
-TOTE_LOAD_TIME = 5.0           # seconds to place a tote on the belt
-TIME_PER_ITEM_SPACING = 2.0    # seconds between consecutive items on belt
-NUM_CONVEYORS = 4
-NUM_ITEM_TYPES = 8
-
-ITEM_NAMES = [
-    "circle",
-    "pentagon",
-    "trapezoid",
-    "triangle",
-    "star",
-    "moon",
-    "heart",
-    "cross",
-]
+ITEM_NAMES = ['circle', 'pentagon', 'trapezoid', 'triangle',
+              'star', 'moon', 'heart', 'cross']
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Data structures and loading helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA LOADING
+# ─────────────────────────────────────────────────────────────────────────────
 
-@dataclass
-class Order:
-    """Represents a customer order."""
-
-    items: List[Tuple[int, int]]  # list of (item_type, quantity)
-    total_items: int
-
-
-@dataclass
-class ToteEntry:
-    """Represents items for a single order inside a tote."""
-
-    order: int
-    item_type: int
-    quantity: int
-
-
-OrdersDict = Dict[int, Order]
-TotesDict = Dict[int, List[ToteEntry]]
-BeltAssignment = List[List[int]]  # conveyor index -> list of order IDs
-ToteSequence = List[int]          # list of tote IDs
-
-
-def _read_csv_raw(path: str) -> List[List[Optional[float]]]:
-    """
-    Read a CSV file as a grid of floats/None.
-
-    Each non-empty cell is parsed as float, empty cells become None.
-    """
-    rows: List[List[Optional[float]]] = []
-    with open(path, newline="") as f:
-        reader = csv.reader(f)
-        for raw_row in reader:
-            # skip completely empty lines
-            if not any(cell.strip() for cell in raw_row):
+def read_csv_raw(path):
+    """Read a CSV file into a list of rows, each row a list of float | None."""
+    rows = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
                 continue
-            row: List[Optional[float]] = []
-            for cell in raw_row:
-                cell = cell.strip()
-                if cell == "":
-                    row.append(None)
-                else:
-                    row.append(float(cell))
+            parts = line.split(',')
+            row = [float(p.strip()) if p.strip() != '' else None for p in parts]
             rows.append(row)
     return rows
 
 
-def load_orders_and_totes(
-    order_itemtypes_path: str,
-    order_quantities_path: str,
-    orders_totes_path: str,
-) -> Tuple[OrdersDict, TotesDict]:
+def build_data(base_path='ranDataGen'):
     """
-    Build orders and totes dictionaries from the three CSV files.
+    Parse the three data CSVs and construct:
+      orders : {order_id: {'items': [(item_type, qty), ...], 'total_items': int}}
+      totes  : {tote_id:  [{'order': oid, 'item_type': it, 'quantity': qty}, ...]}
 
-    This matches the structure used in greedy_tote_simulation.py.
+    Each row in the CSV files corresponds to one order (1-indexed).
+    Columns within a row correspond to each other across the three files:
+      order_itemtypes  -> item type code
+      order_quantities -> how many of that item
+      orders_totes     -> which tote contains that item
     """
-    it_data = _read_csv_raw(order_itemtypes_path)
-    qt_data = _read_csv_raw(order_quantities_path)
-    tt_data = _read_csv_raw(orders_totes_path)
+    it_data = read_csv_raw(os.path.join(base_path, 'order_itemtypes.csv'))
+    qt_data = read_csv_raw(os.path.join(base_path, 'order_quantities.csv'))
+    tt_data = read_csv_raw(os.path.join(base_path, 'orders_totes.csv'))
 
-    orders: OrdersDict = {}
-    totes: TotesDict = {}
+    orders = {}
+    totes  = {}
 
-    for order_idx, (it_row, qt_row, tt_row) in enumerate(
-        zip(it_data, qt_data, tt_data), start=1
-    ):
-        orders[order_idx] = Order(items=[], total_items=0)
+    for order_idx, (it_row, qt_row, tt_row) in enumerate(zip(it_data, qt_data, tt_data)):
+        order_id = order_idx + 1
+        orders[order_id] = {'items': [], 'total_items': 0}
         for it, qt, tt in zip(it_row, qt_row, tt_row):
             if it is None or qt is None or tt is None:
                 continue
-            tote_id = int(tt)
+            tote_id   = int(tt)
             item_type = int(it)
-            quantity = int(qt)
-
-            orders[order_idx].items.append((item_type, quantity))
-            orders[order_idx].total_items += quantity
-
-            if tote_id not in totes:
-                totes[tote_id] = []
-            totes[tote_id].append(
-                ToteEntry(order=order_idx, item_type=item_type, quantity=quantity)
-            )
-
+            quantity  = int(qt)
+            orders[order_id]['items'].append((item_type, quantity))
+            orders[order_id]['total_items'] += quantity
+            totes.setdefault(tote_id, []).append({
+                'order':     order_id,
+                'item_type': item_type,
+                'quantity':  quantity,
+            })
     return orders, totes
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Item row ordering within a tote (Decision 3)
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPER: order-to-conveyor lookup
+# ─────────────────────────────────────────────────────────────────────────────
 
-def _order_rows_within_tote(
-    conv_rows: Dict[int, List[int]],
-    strategy: str = "furthest_first",
-) -> List[Tuple[int, List[int]]]:
+def _build_order_conv_map(conv_queues):
+    """Return {order_id: conveyor_index} from conv_queues."""
+    m = {}
+    for ci, q in enumerate(conv_queues):
+        for oid in q:
+            m[oid] = ci
+    return m
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CORE: MAKESPAN COMPUTATION (full simulation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def compute_makespan(orders, totes, conv_queues, tote_sequence,
+                     row_strategy='furthest_first'):
     """
-    Decide the order in which rows (conveyors) are loaded for a tote.
+    Simulate the circular belt system and return (makespan, results_dict).
 
-    strategy = 'furthest_first' puts higher conveyor indices first so that
-    items travelling the longest distance are placed earlier, making
-    arrivals more synchronized across conveyors.
-    """
-    rows = list(conv_rows.items())
-    if strategy == "furthest_first":
-        rows.sort(key=lambda x: x[0], reverse=True)
-    else:
-        rows.sort(key=lambda x: x[0])
-    return rows
+    Timing model
+    ------------
+    Belt positions: LOAD -> conv0 -> conv1 -> conv2 -> conv3 -> LOAD
 
+    Item placed on belt at time T, destined for conveyor c:
+        arrival_time = T + TIME_PER_SEGMENT * (c + 1)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Core simulation and makespan computation
-# ──────────────────────────────────────────────────────────────────────────────
+    Totes are loaded one at a time. Between totes the belt must clear
+    (all items from the previous tote have arrived at their destinations).
 
-@dataclass
-class SimulationResult:
-    order_completion_times: Dict[int, float]
-    makespan: float
-    sum_completion_times: float
-    avg_completion_time: float
-    event_log: List[Dict[str, object]]  # entries: {'conv', 'items', 'tote'}
+    Within a tote, items for different conveyors are grouped into "rows"
+    (one row per destination conveyor). Rows are ordered by `row_strategy`:
+        'furthest_first' — highest conveyor number placed first (recommended)
+        'nearest_first'  — lowest conveyor number placed first
 
+    Within a row, individual items are spaced by TIME_PER_ITEM_SPACING.
 
-def _simulate_schedule(
-    tote_sequence: ToteSequence,
-    orders: OrdersDict,
-    totes: TotesDict,
-    belt_assignment: BeltAssignment,
-    row_strategy: str = "furthest_first",
-) -> SimulationResult:
-    """
-    Simulate the circular belt system for a given schedule.
-
-    All four conveyors are active in parallel: a single tote can supply items
-    to multiple conveyors (and thus multiple orders) in one load. The belt
-    forms a loop LOAD -> conv0 -> conv1 -> conv2 -> conv3 -> LOAD; items
-    placed at time T arrive at conveyor ci at T + TIME_PER_SEGMENT * (ci + 1).
-
-    Parameters
+    Constraint
     ----------
-    tote_sequence:
-        Order in which totes are loaded on the belt.
-    orders, totes:
-        Problem data as returned by load_orders_and_totes().
-    belt_assignment:
-        List of length NUM_CONVEYORS, each element is the sequence of order
-        IDs to be processed by that conveyor.
+    Only items destined for the *currently active* order on each conveyor
+    are placed. If an order served by a tote is not currently active (it's
+    still queued behind an earlier unfinished order), those items are SKIPPED.
+    This means a bad conveyor assignment can make orders uncompletable.
 
     Returns
     -------
-    SimulationResult with per-order completion times, makespan and an
-    event_log suitable for writing to an input CSV for the conveyor.
+    makespan : float
+        Time when the last conveyor finishes (inf if some order never completes).
+    result   : dict
+        'order_completion_times', 'makespan', 'event_log'
     """
-    # remaining[order_id][item_type] = quantity still needed
-    remaining: Dict[int, Dict[int, int]] = {}
-    for oid, order in orders.items():
+    # Remaining items per order
+    remaining = {}
+    for oid, odata in orders.items():
         remaining[oid] = {}
-        for item_type, qty in order.items:
+        for item_type, qty in odata['items']:
             remaining[oid][item_type] = qty
 
-    # Cache order -> conveyor index for fast lookup
-    order_to_conv: Dict[int, int] = {}
-    for ci, q in enumerate(belt_assignment):
-        for oid in q:
-            order_to_conv[oid] = ci
+    queues    = [list(q) for q in conv_queues]
+    queue_pos = [0] * NUM_CONVEYORS
+    order_conv = _build_order_conv_map(conv_queues)
 
-    order_completion_times: Dict[int, float] = {}
+    def active_order(ci):
+        return queues[ci][queue_pos[ci]] if queue_pos[ci] < len(queues[ci]) else None
+
+    order_completion_times = {}
     current_time = 0.0
-    event_log: List[Dict[str, object]] = []
+    event_log    = []
 
     for tote_id in tote_sequence:
-        # Time when we can start putting items from this tote on the belt
         tote_load_start = current_time + TOTE_LOAD_TIME
 
-        # Build rows of items per conveyor for this tote (items stay on loop).
-        # One tote can feed all 4 conveyors; conv_rows can have keys 0,1,2,3.
-        conv_rows: Dict[int, List[int]] = {}
-        entries_by_conv: Dict[int, List[ToteEntry]] = {}
-        for entry in totes.get(tote_id, []):
-            oid = entry.order
-            item_type = entry.item_type
-            qty = entry.quantity
-
-            ci = order_to_conv.get(oid)
-            if ci is None:
+        # Gather which items from this tote go to which conveyor (only active orders)
+        conv_rows = {}
+        for entry in totes[tote_id]:
+            oid       = entry['order']
+            item_type = entry['item_type']
+            qty       = entry['quantity']
+            ci = order_conv.get(oid)
+            if ci is None or active_order(ci) != oid:
                 continue
-
             if ci not in conv_rows:
                 conv_rows[ci] = [0] * NUM_ITEM_TYPES
             conv_rows[ci][item_type] += qty
 
-            if ci not in entries_by_conv:
-                entries_by_conv[ci] = []
-            entries_by_conv[ci].append(entry)
-
-        # If tote carries no items for known orders, time still advances
         if not conv_rows:
             current_time = tote_load_start
             continue
 
-        # Decide order of rows within this tote (Decision 3)
-        ordered_rows = _order_rows_within_tote(conv_rows, strategy=row_strategy)
+        # Decision 3: order rows within this tote
+        rows = list(conv_rows.items())
+        if row_strategy == 'furthest_first':
+            rows.sort(key=lambda x: x[0], reverse=True)
+        else:
+            rows.sort(key=lambda x: x[0])
 
-        # Log rows for potential CSV generation
-        for ci, counts in ordered_rows:
-            event_log.append({"conv": ci, "items": counts, "tote": tote_id})
+        for ci, counts in rows:
+            event_log.append({'conv': ci, 'items': list(counts)})
 
-        # Place items from each row on the belt and compute arrival times per conveyor
-        belt_cursor = tote_load_start
-        clearance_t = tote_load_start
-        arrival_times_by_conv: Dict[int, List[float]] = {}
+        # Compute placement / arrival times
+        belt_cursor  = tote_load_start
+        clearance_t  = tote_load_start
+        conv_last_arr = {}
 
-        for ci, counts in ordered_rows:
-            total_items = sum(counts)
-            if total_items == 0:
-                continue
-            if ci not in arrival_times_by_conv:
-                arrival_times_by_conv[ci] = []
-            for k in range(total_items):
-                place_t = belt_cursor + k * TIME_PER_ITEM_SPACING
+        for ci, counts in rows:
+            total = sum(counts)
+            for k in range(total):
+                place_t   = belt_cursor + k * TIME_PER_ITEM_SPACING
                 arrival_t = place_t + TIME_PER_SEGMENT * (ci + 1)
-                arrival_times_by_conv[ci].append(arrival_t)
-                if arrival_t > clearance_t:
-                    clearance_t = arrival_t
-            belt_cursor += total_items * TIME_PER_ITEM_SPACING
+                conv_last_arr[ci] = max(conv_last_arr.get(ci, 0), arrival_t)
+                clearance_t = max(clearance_t, arrival_t)
+            belt_cursor += total * TIME_PER_ITEM_SPACING
 
-        # Deliver items to their respective orders in FIFO order on each conveyor.
-        # Items that arrive while an order is not active simply "wait" on the loop
-        # until the order uses them; for makespan, we only need their arrival time.
-        for ci, times in arrival_times_by_conv.items():
-            if ci not in entries_by_conv:
+        # Deliver items and check order completions
+        for ci, last_arr in conv_last_arr.items():
+            oid = active_order(ci)
+            if oid is None or oid in order_completion_times:
                 continue
-            time_iter = iter(times)
-            for entry in entries_by_conv[ci]:
-                oid = entry.order
-                item_type = entry.item_type
-                qty = entry.quantity
-                if oid not in remaining or item_type not in remaining[oid]:
-                    # Unknown or unnecessary item type; just advance time iterator
-                    for _ in range(qty):
-                        try:
-                            next(time_iter)
-                        except StopIteration:
-                            break
-                    continue
-                for _ in range(qty):
-                    try:
-                        t = next(time_iter)
-                    except StopIteration:
-                        break
-                    remaining[oid][item_type] -= 1
-                    if oid not in order_completion_times and all(
-                        v <= 0 for v in remaining[oid].values()
-                    ):
-                        order_completion_times[oid] = t
+
+            for item_type_idx in range(NUM_ITEM_TYPES):
+                qty = conv_rows[ci][item_type_idx]
+                if qty > 0 and item_type_idx in remaining.get(oid, {}):
+                    remaining[oid][item_type_idx] -= qty
+
+            if all(v <= 0 for v in remaining[oid].values()):
+                order_completion_times[oid] = last_arr
+                queue_pos[ci] += 1
 
         current_time = clearance_t
 
-    # Any order that never finished gets infinite completion time
+    # Any order not completed gets infinite time
     for oid in orders:
         if oid not in order_completion_times:
-            order_completion_times[oid] = float("inf")
+            order_completion_times[oid] = float('inf')
 
     makespan = max(order_completion_times.values())
-    finite_times = [t for t in order_completion_times.values() if t != float("inf")]
-    sum_completion = sum(finite_times)
-    avg_completion = (
-        sum_completion / len(finite_times) if finite_times else float("inf")
-    )
 
-    return SimulationResult(
-        order_completion_times=order_completion_times,
-        makespan=makespan,
-        sum_completion_times=sum_completion,
-        avg_completion_time=avg_completion,
-        event_log=event_log,
-    )
+    return makespan, {
+        'order_completion_times': order_completion_times,
+        'makespan':               makespan,
+        'event_log':              event_log,
+    }
 
 
-def compute_makespan(
-    orders: OrdersDict,
-    totes: TotesDict,
-    belt_assignment: BeltAssignment,
-    tote_sequence: ToteSequence,
-) -> float:
+# ─────────────────────────────────────────────────────────────────────────────
+# GREEDY TOTE SEQUENCING (for generating a good initial solution)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def greedy_tote_sequence(orders, totes, conv_queues):
     """
-    Compute the makespan for a given schedule.
+    Build a tote sequence using greedy marginal gain.
+
+    At each step pick the unprocessed tote that delivers the most useful items
+    to currently active orders. Ties broken by number of orders completed, then
+    smallest tote ID.
+    """
+    remaining = {}
+    for oid, odata in orders.items():
+        remaining[oid] = {}
+        for item_type, qty in odata['items']:
+            remaining[oid][item_type] = qty
+
+    queues    = [list(q) for q in conv_queues]
+    queue_pos = [0] * NUM_CONVEYORS
+
+    def active_orders():
+        result = set()
+        for ci in range(NUM_CONVEYORS):
+            if queue_pos[ci] < len(queues[ci]):
+                result.add(queues[ci][queue_pos[ci]])
+        return result
+
+    remaining_totes = list(totes.keys())
+    sequence = []
+
+    while remaining_totes:
+        active = active_orders()
+        best_tote = None
+        best_score = (-1, -1, float('inf'))  # (primary, secondary, tote_id for min)
+
+        for tid in remaining_totes:
+            primary = 0
+            temp_rem = {oid: dict(d) for oid, d in remaining.items()}
+
+            for entry in totes[tid]:
+                oid = entry['order']
+                it  = entry['item_type']
+                qty = entry['quantity']
+                if oid in active:
+                    useful = min(qty, max(temp_rem.get(oid, {}).get(it, 0), 0))
+                    primary += useful
+                    if it in temp_rem.get(oid, {}):
+                        temp_rem[oid][it] -= qty
+
+            secondary = 0
+            for ci in range(NUM_CONVEYORS):
+                if queue_pos[ci] < len(queues[ci]):
+                    oid = queues[ci][queue_pos[ci]]
+                    if oid in active:
+                        if all(v <= 0 for v in temp_rem.get(oid, {}).values()):
+                            has_next = (queue_pos[ci] + 1) < len(queues[ci])
+                            secondary += 2 if has_next else 1
+
+            score = (primary, secondary, -tid)  # negate tid so larger = better (smaller id)
+            if score > best_score:
+                best_score = score
+                best_tote = tid
+
+        sequence.append(best_tote)
+        remaining_totes.remove(best_tote)
+
+        for entry in totes[best_tote]:
+            oid = entry['order']
+            it  = entry['item_type']
+            qty = entry['quantity']
+            if oid in remaining and it in remaining[oid]:
+                remaining[oid][it] -= qty
+
+        for ci in range(NUM_CONVEYORS):
+            if queue_pos[ci] < len(queues[ci]):
+                oid = queues[ci][queue_pos[ci]]
+                if all(v <= 0 for v in remaining.get(oid, {}).values()):
+                    queue_pos[ci] += 1
+
+    return sequence
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOCAL SEARCH
+# ─────────────────────────────────────────────────────────────────────────────
+
+def local_search(orders, totes, initial_queues, initial_tote_seq,
+                 max_iterations=1000, row_strategy='furthest_first',
+                 min_orders_per_conv=1, verbose=True):
+    """
+    First-improvement local search over two neighborhoods.
+
+    Neighborhood 1 — Tote swap
+        Swap the positions of two totes in the tote sequence.
+        Size: C(T,2) = T*(T-1)/2 neighbors.
+
+    Neighborhood 2 — Order move
+        Move one order from its current conveyor to a different conveyor
+        at every feasible insertion position.  Moves that would leave fewer
+        than `min_orders_per_conv` orders on the source conveyor are skipped,
+        ensuring all 4 belts stay active.
+        Size: sum over orders of (C-1) * (len(target_queue) + 1).
+
+    The search alternates: first it scans all tote swaps; if no improvement
+    is found, it scans all order moves. If neither neighborhood yields an
+    improvement, the algorithm terminates (local optimum).
 
     Parameters
     ----------
-    orders, totes:
-        Problem data.
-    belt_assignment:
-        List of length NUM_CONVEYORS; each sub-list is the queue of orders
-        for that conveyor (order IDs).
-    tote_sequence:
-        List of tote IDs in the order they are processed.
+    orders, totes        : problem data (from build_data)
+    initial_queues       : list of 4 lists of order IDs
+    initial_tote_seq     : list of tote IDs
+    max_iterations       : hard cap on iterations
+    row_strategy         : within-tote item ordering strategy
+    min_orders_per_conv  : minimum orders each conveyor must keep (default 1)
+    verbose              : print progress
 
     Returns
     -------
-    float
-        Makespan (completion time of the last order). If an order never
-        completes under this schedule, the makespan will be +inf.
-
-    Time complexity
-    ---------------
-    Let T = number of totes and I = total number of item entries across
-    all totes. The simulation runs in O(T + I) time because each tote and
-    each item entry is processed a constant number of times.
+    best_queues, best_tote_seq, best_makespan, best_result, history
     """
-    result = _simulate_schedule(
-        tote_sequence=tote_sequence,
-        orders=orders,
-        totes=totes,
-        belt_assignment=belt_assignment,
+    best_queues   = [list(q) for q in initial_queues]
+    best_tote_seq = list(initial_tote_seq)
+    best_makespan, best_result = compute_makespan(
+        orders, totes, best_queues, best_tote_seq, row_strategy
     )
-    return result.makespan
 
+    if verbose:
+        ms_str = f"{best_makespan:.1f}s" if best_makespan != float('inf') else "INF"
+        print(f"  Initial makespan: {ms_str}")
+        if best_makespan == float('inf'):
+            print("  WARNING: initial solution has infinite makespan "
+                  "(some orders never complete)")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Neighborhood definitions
-# ──────────────────────────────────────────────────────────────────────────────
+    history = [(0, best_makespan)]
 
-def _tote_swap_neighbors(tote_sequence: ToteSequence) -> Iterable[ToteSequence]:
-    """
-    Generate neighbors by swapping any pair of totes in the sequence.
-
-    Number of neighbors is O(T^2) where T is the number of totes.
-    """
-    n = len(tote_sequence)
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            neighbor = tote_sequence.copy()
-            neighbor[i], neighbor[j] = neighbor[j], neighbor[i]
-            yield neighbor
-
-
-def _order_move_neighbors(
-    belt_assignment: BeltAssignment,
-) -> Iterable[BeltAssignment]:
-    """
-    Generate neighbors by moving a single order to another conveyor,
-    while enforcing that all conveyors remain in use.
-
-    For every conveyor c_from and order position k within it, consider
-    moving that order to every possible position on every other conveyor.
-    Neighbors that leave some conveyor empty are discarded.
-
-    If there are O orders in total and C conveyors, the number of
-    neighbors is O(O^2 * C) in the worst case (still small for
-    the MSE 433 instance).
-    """
-    # For deterministic behavior we iterate conveyors and positions in order
-    for c_from, queue in enumerate(belt_assignment):
-        for pos, oid in enumerate(queue):
-            for c_to in range(NUM_CONVEYORS):
-                if c_to == c_from:
-                    continue
-                dest_queue = belt_assignment[c_to]
-                for insert_pos in range(len(dest_queue) + 1):
-                    if c_from == c_to and insert_pos == pos:
-                        continue
-                    new_assignment: BeltAssignment = [
-                        list(q) for q in belt_assignment
-                    ]
-                    moved_oid = new_assignment[c_from].pop(pos)
-                    new_assignment[c_to].insert(insert_pos, moved_oid)
-                    # Enforce using all conveyors: no queue may be empty
-                    if any(len(q) == 0 for q in new_assignment):
-                        continue
-                    yield new_assignment
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Local search
-# ──────────────────────────────────────────────────────────────────────────────
-
-@dataclass
-class LocalSearchResult:
-    best_belt_assignment: BeltAssignment
-    best_tote_sequence: ToteSequence
-    best_makespan: float
-    best_event_log: List[Dict[str, object]]
-
-
-def local_search(
-    orders: OrdersDict,
-    totes: TotesDict,
-    initial_belt_assignment: BeltAssignment,
-    initial_tote_sequence: ToteSequence,
-    max_iterations: int = 200,
-) -> LocalSearchResult:
-    """
-    Run first-improvement local search.
-
-    Search order per iteration:
-      1. Try all tote-swap neighbors
-      2. If none improve, try all order-move neighbors
-
-    As soon as a better neighbor is found, move to it and start a new
-    iteration. If no better neighbor exists for either neighborhood,
-    or max_iterations iterations are reached, the search stops.
-
-    Returns the best schedule found (assignment, tote sequence and event log).
-    """
-    current_belt = copy.deepcopy(initial_belt_assignment)
-    current_totes = list(initial_tote_sequence)
-    current_result = _simulate_schedule(
-        tote_sequence=current_totes,
-        orders=orders,
-        totes=totes,
-        belt_assignment=current_belt,
-    )
-    current_makespan = current_result.makespan
-
-    for _ in range(max_iterations):
+    for iteration in range(1, max_iterations + 1):
         improved = False
 
-        # 1) Tote swap neighborhood
-        for neighbor_totes in _tote_swap_neighbors(current_totes):
-            ms = compute_makespan(orders, totes, current_belt, neighbor_totes)
-            if ms < current_makespan:
-                current_totes = neighbor_totes
-                current_makespan = ms
-                current_result = _simulate_schedule(
-                    tote_sequence=current_totes,
-                    orders=orders,
-                    totes=totes,
-                    belt_assignment=current_belt,
+        # ── Neighborhood 1: Tote swaps ──────────────────────────────────
+        n = len(best_tote_seq)
+        for i in range(n - 1):
+            if improved:
+                break
+            for j in range(i + 1, n):
+                new_seq = list(best_tote_seq)
+                new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
+                ms, res = compute_makespan(
+                    orders, totes, best_queues, new_seq, row_strategy
                 )
-                improved = True
-                break  # first improvement
+                if ms < best_makespan:
+                    old_ms = best_makespan
+                    best_tote_seq = new_seq
+                    best_makespan = ms
+                    best_result   = res
+                    improved = True
+                    if verbose:
+                        print(f"  Iter {iteration:>3}: Tote swap "
+                              f"pos {i}<->{j} "
+                              f"(tote {best_tote_seq[j]}<->tote {best_tote_seq[i]}) "
+                              f"=> {ms:.1f}s  (was {old_ms:.1f}s)")
+                    break
 
-        if improved:
-            continue
+        # ── Neighborhood 2: Order moves (only if tote swap didn't help) ─
+        if not improved:
+            for from_ci in range(NUM_CONVEYORS):
+                if improved:
+                    break
+                if len(best_queues[from_ci]) <= min_orders_per_conv:
+                    continue  # don't strip a belt below the minimum
+                for oid in list(best_queues[from_ci]):
+                    if improved:
+                        break
+                    for to_ci in range(NUM_CONVEYORS):
+                        if to_ci == from_ci:
+                            continue
+                        if improved:
+                            break
+                        max_pos = len(best_queues[to_ci]) + 1
+                        for pos in range(max_pos):
+                            new_q = [list(q) for q in best_queues]
+                            new_q[from_ci].remove(oid)
+                            new_q[to_ci].insert(pos, oid)
+                            ms, res = compute_makespan(
+                                orders, totes, new_q, best_tote_seq, row_strategy
+                            )
+                            if ms < best_makespan:
+                                old_ms = best_makespan
+                                best_queues   = new_q
+                                best_makespan = ms
+                                best_result   = res
+                                improved = True
+                                if verbose:
+                                    print(f"  Iter {iteration:>3}: Move order {oid} "
+                                          f"conv {from_ci} -> conv {to_ci} pos {pos} "
+                                          f"=> {ms:.1f}s  (was {old_ms:.1f}s)")
+                                break
 
-        # 2) Order move neighborhood
-        for neighbor_belt in _order_move_neighbors(current_belt):
-            ms = compute_makespan(orders, totes, neighbor_belt, current_totes)
-            if ms < current_makespan:
-                current_belt = neighbor_belt
-                current_makespan = ms
-                current_result = _simulate_schedule(
-                    tote_sequence=current_totes,
-                    orders=orders,
-                    totes=totes,
-                    belt_assignment=current_belt,
-                )
-                improved = True
-                break  # first improvement
+        history.append((iteration, best_makespan))
 
         if not improved:
-            break  # local optimum reached
+            if verbose:
+                print(f"  Iter {iteration:>3}: No improving neighbor found. "
+                      "Local optimum reached.")
+            break
 
-    return LocalSearchResult(
-        best_belt_assignment=current_belt,
-        best_tote_sequence=current_totes,
-        best_makespan=current_makespan,
-        best_event_log=current_result.event_log,
-    )
+    if verbose:
+        ms_str = f"{best_makespan:.1f}s" if best_makespan != float('inf') else "INF"
+        print(f"\n  Local search finished after {len(history)-1} iteration(s).")
+        print(f"  Best makespan: {ms_str}")
+
+    return best_queues, best_tote_seq, best_makespan, best_result, history
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Convenience: write conveyor CSV compatible with existing baseline
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# OUTPUT: CSV WRITERS
+# ─────────────────────────────────────────────────────────────────────────────
 
-def write_conveyor_input_csv(
-    event_log: List[Dict[str, object]],
-    output_path: str,
-) -> None:
+def write_schedule_csv(conv_queues, orders, path):
     """
-    Write an input CSV for the physical conveyor (same format as
-    input_baseline_constraint_furthest.csv).
+    Write the conveyor-input CSV — one row per order.
+    Format: conv_num, circle, pentagon, trapezoid, triangle, star, moon, heart, cross
 
-    Each row corresponds to one "row" of items placed from a tote.
-    Columns: conv_num,circle,pentagon,trapezoid,triangle,star,moon,heart,cross
+    Rows are grouped by conveyor in queue order (all Conv 0 orders first, then
+    Conv 1, etc.).  The conveyor processes them top-to-bottom for its belt number.
     """
-    with open(output_path, "w", newline="") as f:
+    with open(path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["conv_num"] + ITEM_NAMES)
-        for event in event_log:
-            counts = list(event["items"])
-            # Output 1-based conveyor index (1, 2, 3, 4)
-            writer.writerow([event["conv"] + 1] + counts)
+        writer.writerow(['conv_num'] + ITEM_NAMES)
+        for ci, queue in enumerate(conv_queues):
+            for oid in queue:
+                counts = [0] * NUM_ITEM_TYPES
+                for item_type, qty in orders[oid]['items']:
+                    counts[item_type] += qty
+                writer.writerow([ci] + counts)
+    print(f"    -> {path}")
 
 
-def write_tote_sequence_csv(
-    tote_sequence: ToteSequence,
-    output_path: str,
-) -> None:
-    """
-    Write the tote loading sequence (optimal tote order) to a CSV file.
-
-    Columns:
-      step_index : 0-based index in the loading sequence
-      tote_id    : ID of the tote loaded at that step
-    """
-    with open(output_path, "w", newline="") as f:
+def write_tote_sequence_csv(tote_seq, path):
+    """Write tote processing order: step, tote_id."""
+    with open(path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["step_index", "tote_id"])
-        for idx, tote_id in enumerate(tote_sequence):
-            writer.writerow([idx, tote_id])
+        writer.writerow(['step', 'tote_id'])
+        for i, tid in enumerate(tote_seq):
+            writer.writerow([i + 1, tid])
+    print(f"    -> {path}")
 
 
-def write_tote_item_sequence_csv(
-    tote_sequence: ToteSequence,
-    event_log: List[Dict[str, object]],
-    output_path: str,
-) -> None:
+def write_item_sequence_csv(tote_seq, totes, conv_queues, orders, path,
+                            row_strategy='furthest_first'):
     """
-    Write one row per tote in loading order, with item counts aggregated
-    across all conveyors for that tote (unique tote_id per row).
-
-    Columns:
-      step_index : index of the tote in the loading sequence
-      tote_id    : ID of the tote (unique per row)
-      circle,...,cross : total item counts from this tote (all conveyors summed)
+    Write the full item-level loading sequence.
+    Each row: step, tote_id, conveyor, order_id, item_type, item_name
     """
-    # Aggregate event_log by tote_id: sum item counts for each tote
-    tote_items: Dict[int, List[int]] = {}
-    for event in event_log:
-        tote_id = int(event["tote"])
-        counts = list(event["items"])
-        if tote_id not in tote_items:
-            tote_items[tote_id] = [0] * NUM_ITEM_TYPES
-        for i in range(NUM_ITEM_TYPES):
-            tote_items[tote_id][i] += counts[i]
+    remaining = {}
+    for oid, odata in orders.items():
+        remaining[oid] = {}
+        for it, qty in odata['items']:
+            remaining[oid][it] = qty
 
-    with open(output_path, "w", newline="") as f:
+    queues    = [list(q) for q in conv_queues]
+    queue_pos = [0] * NUM_CONVEYORS
+    order_conv = _build_order_conv_map(conv_queues)
+
+    def active_order(ci):
+        return queues[ci][queue_pos[ci]] if queue_pos[ci] < len(queues[ci]) else None
+
+    rows_out = []
+    step = 0
+
+    for tote_id in tote_seq:
+        conv_rows    = {}
+        conv_entries = {}
+        for entry in totes[tote_id]:
+            oid = entry['order']
+            it  = entry['item_type']
+            qty = entry['quantity']
+            ci  = order_conv.get(oid)
+            if ci is None or active_order(ci) != oid:
+                continue
+            if ci not in conv_rows:
+                conv_rows[ci]    = [0] * NUM_ITEM_TYPES
+                conv_entries[ci] = []
+            conv_rows[ci][it] += qty
+            conv_entries[ci].append(entry)
+
+        if not conv_rows:
+            continue
+
+        ordered = list(conv_rows.items())
+        if row_strategy == 'furthest_first':
+            ordered.sort(key=lambda x: x[0], reverse=True)
+        else:
+            ordered.sort(key=lambda x: x[0])
+
+        for ci, _ in ordered:
+            for entry in conv_entries[ci]:
+                for _ in range(entry['quantity']):
+                    step += 1
+                    it = entry['item_type']
+                    rows_out.append([
+                        step, tote_id, ci, entry['order'], it,
+                        ITEM_NAMES[it] if it < len(ITEM_NAMES) else f"type_{it}"
+                    ])
+
+        # Advance queue state (mirrors compute_makespan logic)
+        for ci in conv_rows:
+            oid = active_order(ci)
+            if oid is None:
+                continue
+            for it_idx in range(NUM_ITEM_TYPES):
+                qty = conv_rows[ci][it_idx]
+                if qty > 0 and it_idx in remaining.get(oid, {}):
+                    remaining[oid][it_idx] -= qty
+            if all(v <= 0 for v in remaining[oid].values()):
+                queue_pos[ci] += 1
+
+    with open(path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["step_index", "tote_id"] + ITEM_NAMES)
-        for step_idx, tote_id in enumerate(tote_sequence):
-            counts = tote_items.get(tote_id, [0] * NUM_ITEM_TYPES)
-            writer.writerow([step_idx, tote_id] + counts)
+        writer.writerow(['step', 'tote_id', 'conveyor', 'order_id',
+                         'item_type', 'item_name'])
+        writer.writerows(rows_out)
+    print(f"    -> {path}")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Example usage with small mock data
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# INITIAL SOLUTION CONSTRUCTORS
+# ─────────────────────────────────────────────────────────────────────────────
 
-def _build_small_mock_instance() -> Tuple[OrdersDict, TotesDict, BeltAssignment, ToteSequence]:
+def build_constraint_satisfying_queues():
     """
-    Build a tiny mock instance (2 conveyors, 3 orders, 2 totes) purely for
-    demonstration of the API, independent of the CSV files.
+    Hand-crafted conveyor assignment that satisfies the simultaneous-active
+    constraint derived from multi-order tote analysis.
+
+    Multi-order totes in the reference dataset:
+        Tote  1: Orders {1, 11}   -> must be on different conveyors, both active
+        Tote  8: Orders {4, 6, 9} -> need 3 different conveyors, all active
+        Tote  9: Orders {2, 4}    -> different conveyors, both active
+        Tote 10: Orders {2, 8}    -> different conveyors, both active
+
+    Assignment:
+        Conv 0: [O1,  O2]
+        Conv 1: [O11, O4]
+        Conv 2: [O3,  O6,  O8]
+        Conv 3: [O7,  O9,  O5, O10]
     """
-    global NUM_CONVEYORS
-    old_num_conv = NUM_CONVEYORS
-    NUM_CONVEYORS = 2  # override for the small example
-
-    orders: OrdersDict = {
-        1: Order(items=[(0, 2)], total_items=2),      # needs 2 circles
-        2: Order(items=[(0, 1), (1, 1)], total_items=2),  # 1 circle, 1 pentagon
-        3: Order(items=[(1, 2)], total_items=2),      # 2 pentagons
-    }
-
-    totes: TotesDict = {
-        1: [
-            ToteEntry(order=1, item_type=0, quantity=2),
-            ToteEntry(order=2, item_type=0, quantity=1),
-        ],
-        2: [
-            ToteEntry(order=2, item_type=1, quantity=1),
-            ToteEntry(order=3, item_type=1, quantity=2),
-        ],
-    }
-
-    # Initial belt assignment: orders 1,2 on conv 0; order 3 on conv 1
-    belt_assignment: BeltAssignment = [
+    return [
         [1, 2],
-        [3],
+        [11, 4],
+        [3, 6, 8],
+        [7, 9, 5, 10],
     ]
 
-    tote_sequence: ToteSequence = [1, 2]
 
-    # Restore original number of conveyors for the rest of the module
-    NUM_CONVEYORS = old_num_conv
+def build_round_robin_queues(orders):
+    """Simple round-robin (does NOT guarantee the simultaneous-active constraint)."""
+    order_list = sorted(orders.keys())
+    queues = [[] for _ in range(NUM_CONVEYORS)]
+    for i, oid in enumerate(order_list):
+        queues[i % NUM_CONVEYORS].append(oid)
+    return queues
 
-    return orders, totes, belt_assignment, tote_sequence
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DISPLAY HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def print_solution(label, queues, tote_seq, makespan, completion_times):
+    """Pretty-print a solution summary."""
+    print(f"\n{'='*68}")
+    print(f"  {label}")
+    print(f"{'='*68}")
+    for ci, q in enumerate(queues):
+        print(f"  Conv {ci}: {q}")
+    print(f"  Tote sequence: {tote_seq}")
+    ms_str = f"{makespan:.1f}s" if makespan != float('inf') else "INF"
+    print(f"  Makespan: {ms_str}")
+    print(f"\n  Per-order completion times:")
+    for oid in sorted(completion_times):
+        t = completion_times[oid]
+        t_str = f"{t:>8.1f}s" if t != float('inf') else "     INF"
+        print(f"    Order {oid:>2}: {t_str}")
 
 
-def _example_usage() -> None:
+# ─────────────────────────────────────────────────────────────────────────────
+# MOCK DATA EXAMPLE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_mock_example():
     """
-    Run a small end-to-end example using the mock instance.
+    Small self-contained example: 4 orders, 3 totes, 4 conveyors.
+    Demonstrates that the local search can find improving moves.
 
-    This does NOT use the CSV files; it is only for demonstration of how to
-    call compute_makespan() and local_search().
+    Orders:
+      O1: 2x circle  + 1x pentagon  (3 items)
+      O2: 3x trapezoid              (3 items)
+      O3: 1x circle  + 2x triangle  (3 items)
+      O4: 2x pentagon               (2 items)
+
+    Totes (shared):
+      T1: O1 2x circle,  O3 1x circle       <- multi-order
+      T2: O1 1x pentagon, O2 3x trapezoid   <- multi-order
+      T3: O3 2x triangle, O4 2x pentagon    <- multi-order
+
+    Because every tote is shared, all four orders must be simultaneously
+    active when any tote loads => one order per conveyor works.
     """
-    orders, totes, belt_assignment, tote_sequence = _build_small_mock_instance()
+    print("\n" + "=" * 68)
+    print("  MOCK DATA EXAMPLE (4 orders, 3 totes)")
+    print("=" * 68)
 
-    # For the mock example we temporarily set NUM_CONVEYORS = 2
-    original_num_conv = NUM_CONVEYORS
-    NUM_CONVEYORS = 2
+    mock_orders = {
+        1: {'items': [(0, 2), (1, 1)], 'total_items': 3},
+        2: {'items': [(2, 3)],          'total_items': 3},
+        3: {'items': [(0, 1), (3, 2)], 'total_items': 3},
+        4: {'items': [(1, 2)],          'total_items': 2},
+    }
 
-    base_ms = compute_makespan(orders, totes, belt_assignment, tote_sequence)
-    print(f"Initial makespan (mock example): {base_ms:.1f} s")
+    mock_totes = {
+        1: [{'order': 1, 'item_type': 0, 'quantity': 2},
+            {'order': 3, 'item_type': 0, 'quantity': 1}],
+        2: [{'order': 1, 'item_type': 1, 'quantity': 1},
+            {'order': 2, 'item_type': 2, 'quantity': 3}],
+        3: [{'order': 3, 'item_type': 3, 'quantity': 2},
+            {'order': 4, 'item_type': 1, 'quantity': 2}],
+    }
 
-    ls_result = local_search(
-        orders=orders,
-        totes=totes,
-        initial_belt_assignment=belt_assignment,
-        initial_tote_sequence=tote_sequence,
-        max_iterations=50,
+    init_queues   = [[1], [2], [3], [4]]
+    init_tote_seq = [1, 2, 3]
+
+    ms0, res0 = compute_makespan(mock_orders, mock_totes,
+                                 init_queues, init_tote_seq)
+    print(f"\n  Initial queues:   {init_queues}")
+    print(f"  Initial tote seq: {init_tote_seq}")
+    print(f"  Initial makespan: {ms0:.1f}s\n")
+
+    best_q, best_ts, best_ms, best_res, hist = local_search(
+        mock_orders, mock_totes, init_queues, init_tote_seq,
+        max_iterations=50, verbose=True
     )
 
-    print(f"Improved makespan (mock example): {ls_result.best_makespan:.1f} s")
-    print("Best belt assignment (per conveyor):")
-    for ci, q in enumerate(ls_result.best_belt_assignment):
-        print(f"  Conveyor {ci}: {q}")
-    print(f"Best tote sequence: {ls_result.best_tote_sequence}")
+    print(f"\n  Final queues:   {best_q}")
+    print(f"  Final tote seq: {best_ts}")
+    print(f"  Final makespan: {best_ms:.1f}s")
+    if ms0 != float('inf') and best_ms != float('inf'):
+        imp = ms0 - best_ms
+        pct = (imp / ms0) * 100 if ms0 > 0 else 0
+        print(f"  Improvement:    {imp:.1f}s ({pct:.1f}%)")
 
-    NUM_CONVEYORS = original_num_conv
+    return best_ms
 
 
-if __name__ == "__main__":
-    # Example on mock data
-    # _example_usage()
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
 
-    # Uncomment the block below to run on your real CSV files.
-    # Adjust paths as needed for your environment.
-    #
-    orders, totes = load_orders_and_totes(
-        order_itemtypes_path="ranDataGen/order_itemtypes.csv",
-        order_quantities_path="ranDataGen/order_quantities.csv",
-        orders_totes_path="ranDataGen/orders_totes.csv",
+if __name__ == '__main__':
+    print("=" * 68)
+    print("  MSE 433 - Local Search for Warehousing Optimization")
+    print("=" * 68)
+
+    # ── 1. Run mock example ──────────────────────────────────────────────
+    run_mock_example()
+
+    # ── 2. Load real dataset ─────────────────────────────────────────────
+    print("\n\n" + "=" * 68)
+    print("  REAL DATASET")
+    print("=" * 68)
+
+    orders, totes = build_data('ranDataGen')
+    print(f"\n  Loaded {len(orders)} orders, {len(totes)} totes")
+
+    print("\n  Order summary:")
+    for oid in sorted(orders):
+        items_str = ', '.join(
+            f"{ITEM_NAMES[it] if it < len(ITEM_NAMES) else it} x{qty}"
+            for it, qty in orders[oid]['items'])
+        print(f"    Order {oid:>2} ({orders[oid]['total_items']:>2} items): {items_str}")
+
+    print("\n  Tote contents:")
+    for tid in sorted(totes):
+        contents = ', '.join(
+            f"O{e['order']} {ITEM_NAMES[e['item_type']]}x{e['quantity']}"
+            for e in totes[tid])
+        print(f"    Tote {tid:>2}: {contents}")
+
+    print("\n  Multi-order totes (require simultaneous activation):")
+    for tid in sorted(totes):
+        oids = sorted({e['order'] for e in totes[tid]})
+        if len(oids) > 1:
+            print(f"    Tote {tid:>2}: Orders {oids}")
+
+    # ── 3. Baseline (sorted totes, constraint-satisfying queues) ─────────
+    init_queues   = build_constraint_satisfying_queues()
+    init_tote_seq = sorted(totes.keys())
+
+    init_ms, init_res = compute_makespan(
+        orders, totes, init_queues, init_tote_seq)
+
+    print_solution("BASELINE: sorted totes + constraint queues",
+                   init_queues, init_tote_seq, init_ms,
+                   init_res['order_completion_times'])
+
+    # ── 4. Greedy initial solution ───────────────────────────────────────
+    greedy_seq = greedy_tote_sequence(orders, totes, init_queues)
+    greedy_ms, greedy_res = compute_makespan(
+        orders, totes, init_queues, greedy_seq)
+
+    print_solution("GREEDY: marginal-gain tote ordering + constraint queues",
+                   init_queues, greedy_seq, greedy_ms,
+                   greedy_res['order_completion_times'])
+
+    # ── 5. Local search from greedy solution ─────────────────────────────
+    print("\n" + "=" * 68)
+    print("  RUNNING LOCAL SEARCH  (starting from greedy solution)")
+    print("=" * 68 + "\n")
+
+    t0 = time_module.time()
+    best_q, best_ts, best_ms, best_res, history = local_search(
+        orders, totes, init_queues, greedy_seq,
+        max_iterations=1000, verbose=True
     )
-    
-    # Simple initial solution: round-robin assignment and sorted totes
-    all_orders = sorted(orders.keys())
-    belt_assignment: BeltAssignment = [[] for _ in range(NUM_CONVEYORS)]
-    for idx, oid in enumerate(all_orders):
-        belt_assignment[idx % NUM_CONVEYORS].append(oid)
-    
-    tote_sequence: ToteSequence = sorted(totes.keys())
-    
-    ls_result = local_search(
-        orders=orders,
-        totes=totes,
-        initial_belt_assignment=belt_assignment,
-        initial_tote_sequence=tote_sequence,
-        max_iterations=500,
-    )
+    elapsed = time_module.time() - t0
 
-    print(f"Best makespan (CSV instance): {ls_result.best_makespan:.1f} s")
+    print_solution(f"LOCAL SEARCH RESULT  ({elapsed:.2f}s wall time)",
+                   best_q, best_ts, best_ms,
+                   best_res['order_completion_times'])
 
-    # Re-simulate best schedule to get per-order completion times
-    best_sim = _simulate_schedule(
-        tote_sequence=ls_result.best_tote_sequence,
-        orders=orders,
-        totes=totes,
-        belt_assignment=ls_result.best_belt_assignment,
-    )
+    # ── 6. Improvement summary ───────────────────────────────────────────
+    print(f"\n{'='*68}")
+    print("  COMPARISON")
+    print(f"{'='*68}")
+    print(f"  {'Method':<45} {'Makespan':>10}")
+    print(f"  {'-'*45} {'-'*10}")
+    for label, ms in [("Baseline (sorted totes)",           init_ms),
+                      ("Greedy (marginal-gain totes)",      greedy_ms),
+                      ("Local Search (from greedy)",        best_ms)]:
+        ms_str = f"{ms:.1f}s" if ms != float('inf') else "INF"
+        print(f"  {label:<45} {ms_str:>10}")
 
-    print("Per-order completion times (CSV instance):")
-    for oid in sorted(best_sim.order_completion_times.keys()):
-        t = best_sim.order_completion_times[oid]
-        if t == float("inf"):
-            print(f"  Order {oid}: never completed (∞)")
-        else:
-            print(f"  Order {oid}: {t:.1f} s")
+    if greedy_ms != float('inf') and best_ms != float('inf'):
+        imp = greedy_ms - best_ms
+        pct = (imp / greedy_ms) * 100 if greedy_ms > 0 else 0
+        print(f"\n  Improvement over greedy: {imp:.1f}s ({pct:.1f}%)")
+    if init_ms != float('inf') and best_ms != float('inf'):
+        imp = init_ms - best_ms
+        pct = (imp / init_ms) * 100 if init_ms > 0 else 0
+        print(f"  Improvement over baseline: {imp:.1f}s ({pct:.1f}%)")
 
-    write_conveyor_input_csv(
-        event_log=ls_result.best_event_log,
-        output_path="local_search_best_schedule.csv",
-    )
-
+    # ── 7. Write output files ────────────────────────────────────────────
+    print(f"\n{'='*68}")
+    print("  OUTPUT FILES")
+    print(f"{'='*68}")
+    write_schedule_csv(
+        best_q, orders,
+        'local_search_best_schedule.csv')
     write_tote_sequence_csv(
-        tote_sequence=ls_result.best_tote_sequence,
-        output_path="local_search_best_tote_sequence.csv",
-    )
+        best_ts,
+        'local_search_best_tote_sequence.csv')
+    write_item_sequence_csv(
+        best_ts, totes, best_q, orders,
+        'local_search_best_tote_item_sequence.csv')
 
-    write_tote_item_sequence_csv(
-        tote_sequence=ls_result.best_tote_sequence,
-        event_log=ls_result.best_event_log,
-        output_path="local_search_best_tote_item_sequence.csv",
-    )
-
+    print(f"\n{'='*68}")
+    print("  DONE")
+    print(f"{'='*68}")
