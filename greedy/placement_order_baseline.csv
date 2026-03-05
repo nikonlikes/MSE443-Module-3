@@ -1,0 +1,26 @@
+BASELINE — Item Placement Order
+Tote sequence: 0 -> 1 -> 2 -> 3
+
+Placement Order,Tote,Conveyor,Order,Item
+1,Tote 0,Conv 3,Order 4,pentagon
+2,Tote 0,Conv 3,Order 4,trapezoid
+
+3,Tote 1,Conv 1,Order 3,circle
+4,Tote 1,Conv 0,Order 1,pentagon
+5,Tote 1,Conv 0,Order 1,pentagon
+6,Tote 1,Conv 0,Order 1,triangle
+7,Tote 1,Conv 0,Order 1,triangle
+8,Tote 1,Conv 0,Order 1,triangle
+
+9,Tote 2,Conv 2,Order 2,circle
+10,Tote 2,Conv 2,Order 2,trapezoid
+11,Tote 2,Conv 2,Order 2,trapezoid
+12,Tote 2,Conv 2,Order 2,trapezoid
+13,Tote 2,Conv 1,Order 3,trapezoid
+14,Tote 2,Conv 1,Order 3,trapezoid
+15,Tote 2,Conv 1,Order 3,trapezoid
+
+16,Tote 3,Conv 2,Order 2,triangle
+17,Tote 3,Conv 1,Order 3,triangle
+18,Tote 3,Conv 1,Order 3,triangle
+19,Tote 3,Conv 1,Order 3,triangle
