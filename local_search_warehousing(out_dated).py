@@ -50,10 +50,10 @@ import time as time_module
 # ─────────────────────────────────────────────────────────────────────────────
 # TUNABLE PARAMETERS  (calibrate after physical conveyor testing)
 # ─────────────────────────────────────────────────────────────────────────────
-TIME_PER_SEGMENT      = 20.0   # seconds between adjacent belt positions
+TIME_PER_SEGMENT      = 7.5   # seconds between adjacent belt positions
 LOOP_TIME             = 4 * TIME_PER_SEGMENT  # full belt circulation (80 s)
 TOTE_LOAD_TIME        = 5.0    # seconds to physically place a tote on the belt
-TIME_PER_ITEM_SPACING = 2.0    # seconds between consecutive items placed on belt
+TIME_PER_ITEM_SPACING = 3.0    # seconds between consecutive items placed on belt
 NUM_CONVEYORS         = 4
 NUM_ITEM_TYPES        = 8
 
