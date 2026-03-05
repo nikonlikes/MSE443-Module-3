@@ -146,8 +146,9 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
     Item placed on belt at time T, destined for conveyor c:
         arrival_time = T + TIME_PER_SEGMENT * (c + 1)
 
-    Totes are loaded one at a time. Between totes the belt must clear
-    (all items from the previous tote have arrived at their destinations).
+    Totes are loaded one at a time. The next tote can begin loading as
+    soon as all items from the previous tote have been placed on the belt
+    (items may still be in transit).
 
     Within a tote, items for different conveyors are grouped into "rows"
     (one row per destination conveyor). Rows are ordered by `row_strategy`:
@@ -220,7 +221,6 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
 
         # Compute placement / arrival times
         belt_cursor  = tote_load_start
-        clearance_t  = tote_load_start
         conv_last_arr = {}
 
         for ci, counts in rows:
@@ -229,7 +229,6 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
                 place_t   = belt_cursor + k * TIME_PER_ITEM_SPACING
                 arrival_t = place_t + TIME_PER_SEGMENT * (ci + 1)
                 conv_last_arr[ci] = max(conv_last_arr.get(ci, 0), arrival_t)
-                clearance_t = max(clearance_t, arrival_t)
             belt_cursor += total * TIME_PER_ITEM_SPACING
 
         # Deliver items and check order completions
@@ -247,7 +246,7 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
                 order_completion_times[oid] = last_arr
                 queue_pos[ci] += 1
 
-        current_time = clearance_t
+        current_time = belt_cursor
 
     # Any order not completed gets infinite time
     for oid in orders:
