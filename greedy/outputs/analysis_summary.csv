@@ -1,0 +1,7 @@
+size,method,makespan_mean,makespan_median,makespan_min,makespan_max,sum_completion_mean,avg_completion_mean,n_completed,n_total
+small,greedy,76.0,75.0,66.0,87.0,253.85,51.627738095238094,3,30
+small,baseline,75.0,75.0,75.0,75.0,191.55,46.27345238095238,1,30
+medium,greedy,,,,,801.45,89.6457518870019,0,30
+medium,baseline,,,,,369.85,66.14498917748918,0,30
+large,greedy,,,,,1814.85,126.4177167445128,0,30
+large,baseline,,,,,345.6,65.68714285714286,0,30

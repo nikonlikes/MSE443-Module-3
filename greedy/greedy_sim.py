@@ -37,14 +37,14 @@ Greedy Marginal Gain Heuristic — Tote Sequencing Simulation
    the most useful items to currently active orders. Ties broken by secondary
    score (unblocking value), then smallest tote ID.
 
-=== DATA (4 orders, totes 0–3) ===
-  Order 1: item_type=3 qty=3 tote=1 | item_type=1 qty=2 tote=1
-  Order 2: item_type=2 qty=3 tote=2 | item_type=3 qty=1 tote=3 | item_type=0 qty=1 tote=2
-  Order 3: item_type=3 qty=3 tote=3 | item_type=2 qty=3 tote=2 | item_type=0 qty=1 tote=1
-  Order 4: item_type=1 qty=1 tote=0 | item_type=2 qty=1 tote=0
+=== DATA ===
+  Can load from CSV: ranDataGen copy/{small|medium|large} sized samples/
+  Files per dataset N: order_itemtypes_N.csv, order_quantities_N.csv, orders_totes_N.csv
+  Rows = orders (order_id = 1-based row index), columns = item slots (aligned across files).
 """
 
 import csv
+import os
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TIMING CONSTANTS
@@ -62,13 +62,118 @@ TRAVEL = {
 }
 
 NUM_CONVEYORS  = 4
+# NUM_ITEM_TYPES set from data when loading CSVs; default for legacy build_data()
 NUM_ITEM_TYPES = 8
 ITEM_NAMES     = ['circle','pentagon','trapezoid','triangle','star','moon','heart','cross']
+
+# Root folder for generated datasets (relative to project root)
+DATA_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ranDataGen copy')
+SAMPLE_FOLDERS = [
+    'small sized samples',
+    'medium sized samples',
+    'large sized samples',
+]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATA
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_cell(s):
+    """Return int from cell string (e.g. '6.0' or '6' or '' -> None)."""
+    s = (s or '').strip()
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except ValueError:
+        return None
+
+
+def load_data_from_csv(folder_path, dataset_id):
+    """
+    Load orders and totes from the three CSVs for one dataset.
+    folder_path: path to folder containing order_itemtypes_{id}.csv, etc.
+    dataset_id: integer (e.g. 1..30).
+    Returns (orders, totes) in same format as build_data().
+    Also sets global NUM_ITEM_TYPES from data (max item_type + 1).
+    Raises on missing/invalid files; caller may catch to skip dataset.
+    """
+    global NUM_ITEM_TYPES
+    base = os.path.join(folder_path, '')
+    types_path = os.path.join(base, f'order_itemtypes_{dataset_id}.csv')
+    qty_path   = os.path.join(base, f'order_quantities_{dataset_id}.csv')
+    totes_path = os.path.join(base, f'orders_totes_{dataset_id}.csv')
+
+    def read_csv_rows(path):
+        rows = []
+        with open(path, 'r', newline='', encoding='utf-8') as f:
+            for row in csv.reader(f):
+                rows.append(row)
+        return rows
+
+    types_rows = read_csv_rows(types_path)
+    qty_rows   = read_csv_rows(qty_path)
+    totes_rows = read_csv_rows(totes_path)
+
+    # Align by row count (orders)
+    n_rows = min(len(types_rows), len(qty_rows), len(totes_rows))
+    orders = {}
+    totes  = {}
+    max_item_type = -1
+
+    for row_idx in range(n_rows):
+        order_id = row_idx + 1
+        t_row = types_rows[row_idx] if row_idx < len(types_rows) else []
+        q_row = qty_rows[row_idx]   if row_idx < len(qty_rows) else []
+        to_row = totes_rows[row_idx] if row_idx < len(totes_rows) else []
+
+        n_cols = min(len(t_row), len(q_row), len(to_row))
+        for col_idx in range(n_cols):
+            item_type = _parse_cell(t_row[col_idx])
+            qty       = _parse_cell(q_row[col_idx])
+            tote_id   = _parse_cell(to_row[col_idx])
+            if item_type is None or qty is None or tote_id is None:
+                continue
+            if qty <= 0:
+                continue
+            max_item_type = max(max_item_type, item_type)
+
+            if order_id not in orders:
+                orders[order_id] = {'items': [], 'total_items': 0}
+            orders[order_id]['items'].append((item_type, qty))
+            orders[order_id]['total_items'] += qty
+
+            if tote_id not in totes:
+                totes[tote_id] = []
+            totes[tote_id].append({
+                'order':     order_id,
+                'item_type': item_type,
+                'quantity':  qty,
+            })
+
+    NUM_ITEM_TYPES = max(max_item_type + 1, 1)
+    return orders, totes
+
+
+def discover_dataset_ids(folder_path):
+    """
+    Find all dataset IDs in folder by scanning for orders_totes_*.csv.
+    Returns sorted list of integers (e.g. [1, 2, ..., 30]).
+    """
+    ids = []
+    prefix = 'orders_totes_'
+    suffix = '.csv'
+    try:
+        for name in os.listdir(folder_path):
+            if name.startswith(prefix) and name.endswith(suffix):
+                mid = name[len(prefix):-len(suffix)]
+                if mid.isdigit():
+                    ids.append(int(mid))
+    except OSError:
+        pass
+    return sorted(ids)
+
 
 def build_data():
     """
@@ -121,37 +226,38 @@ def build_data():
 def build_constraint_satisfying_queues(orders, totes):
     """
     Assign orders to conveyor queues satisfying the simultaneous-active constraint.
-
-    Multi-order totes in this dataset:
-      Tote 1: Orders 1, 3  → must be on DIFFERENT conveyors, active at same time
-      Tote 2: Orders 2, 3  → must be on DIFFERENT conveyors, active at same time
-      Tote 3: Orders 2, 3  → must be on DIFFERENT conveyors, active at same time
-
-    Since Orders 2 and 3 share TWO totes (2 and 3), they must be simultaneously
-    active for BOTH of those totes. This means they must both be at the front of
-    their queues across a stretch of tote loads — they effectively run in parallel
-    until both are complete.
-
-    Order 1 shares Tote 1 with Order 3, so Order 1 must be active when Order 3 is.
-    Order 4 has only its own totes (Tote 0), so it can go on any remaining conveyor.
-
-    Valid assignment:
-      Conv 0: [Order 1]        — shares Tote 1 with Order 3 (Conv 1), active together
-      Conv 1: [Order 3]        — shares Tote 1 with Order 1, Totes 2&3 with Order 2
-      Conv 2: [Order 2]        — shares Totes 2&3 with Order 3 (Conv 1)
-      Conv 3: [Order 4]        — independent (Tote 0 only)
+    Orders that share a tote must be on different conveyors (so they can be
+    active at the same time when that tote is loaded). Uses greedy graph coloring
+    with NUM_CONVEYORS colors; orders in the same queue are ordered by order ID.
     """
-    conv_queues = [
-        [1],   # Conv 0
-        [3],   # Conv 1
-        [2],   # Conv 2
-        [4],   # Conv 3
-    ]
+    # Build conflict graph: orders that share a tote must be on different conveyors
+    order_ids = sorted(orders.keys())
+    neighbors = {oid: set() for oid in order_ids}
+    for tote_id, entries in totes.items():
+        oids_in_tote = {e['order'] for e in entries}
+        for oid in oids_in_tote:
+            neighbors[oid].update(oids_in_tote)
+        for oid in oids_in_tote:
+            neighbors[oid].discard(oid)
 
+    # Greedy coloring: assign each order to first conveyor (color) not used by a neighbor
     order_to_conv = {}
-    for ci, q in enumerate(conv_queues):
-        for oid in q:
-            order_to_conv[oid] = ci
+    for oid in order_ids:
+        used = {order_to_conv[n] for n in neighbors[oid] if n in order_to_conv}
+        for c in range(NUM_CONVEYORS):
+            if c not in used:
+                order_to_conv[oid] = c
+                break
+        else:
+            # More than NUM_CONVEYORS orders in a clique — put on conv 0 as fallback
+            order_to_conv[oid] = 0
+
+    # Build queues: same conveyor -> same list, sorted by order ID
+    conv_queues = [[] for _ in range(NUM_CONVEYORS)]
+    for oid in order_ids:
+        conv_queues[order_to_conv[oid]].append(oid)
+    for c in range(NUM_CONVEYORS):
+        conv_queues[c].sort()
 
     return conv_queues, order_to_conv
 
@@ -385,7 +491,8 @@ def simulate(tote_sequence, orders, totes, conv_queues,
                 conv_arrival_times[ci].append(arrival_t)
 
             if verbose:
-                named = {ITEM_NAMES[i]: counts[i]
+                names = get_item_names()
+                named = {names[i]: counts[i]
                          for i in range(NUM_ITEM_TYPES) if counts[i] > 0}
                 last_arr = max(conv_arrival_times[ci]) if ci in conv_arrival_times else 0
                 print(f"  Row → Conv {ci} (Order {active_order(ci)}): "
@@ -455,13 +562,19 @@ def simulate(tote_sequence, orders, totes, conv_queues,
 # OUTPUT CSV
 # ─────────────────────────────────────────────────────────────────────────────
 
-def write_input_csv(event_log, output_path):
+def get_item_names():
+    """Column names for item types (pad beyond len(ITEM_NAMES) with item0, item1, ...)."""
+    return [ITEM_NAMES[i] if i < len(ITEM_NAMES) else f'item{i}' for i in range(NUM_ITEM_TYPES)]
+
+
+def write_input_csv(event_log, output_path, quiet=False):
     with open(output_path, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['conv_num'] + ITEM_NAMES)
+        writer.writerow(['conv_num'] + get_item_names())
         for event in event_log:
             writer.writerow([event['conv']] + event['items'])
-    print(f"  ✔ CSV written: {output_path}")
+    if not quiet:
+        print(f"  ✔ CSV written: {output_path}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -509,66 +622,128 @@ def compare_table(results_dict):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+def run_single_dataset(folder_path, dataset_id, size_label, output_base, verbose=False):
+    """
+    Load one dataset, run greedy and baseline, optionally write CSVs.
+    Returns (size_label, dataset_id, res_greedy, res_baseline).
+    """
+    orders, totes = load_data_from_csv(folder_path, dataset_id)
+    if not orders or not totes:
+        return (size_label, dataset_id, None, None)
+
+    cq, _ = build_constraint_satisfying_queues(orders, totes)
+    seq_g = greedy_tote_sequence(orders, totes, cq, verbose=verbose)
+    seq_b = sorted(totes.keys())
+    res_g = simulate(seq_g, orders, totes, cq, verbose=verbose)
+    res_b = simulate(seq_b, orders, totes, cq, verbose=verbose)
+
+    if output_base:
+        out_dir = os.path.join(output_base, size_label, f'dataset_{dataset_id}')
+        os.makedirs(out_dir, exist_ok=True)
+        write_input_csv(res_g['event_log'], os.path.join(out_dir, 'input_greedy.csv'), quiet=True)
+        write_input_csv(res_b['event_log'], os.path.join(out_dir, 'input_baseline.csv'), quiet=True)
+
+    return (size_label, dataset_id, res_g, res_b)
+
+
 if __name__ == '__main__':
     print("=" * 68)
     print("  MSE 433 — Greedy Tote Sequencing Simulation")
     print("=" * 68)
 
-    orders, totes = build_data()
+    # Output directory: greedy/outputs/ under project root
+    output_base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'greedy', 'outputs')
 
-    print(f"\nLoaded {len(orders)} orders, {len(totes)} totes")
+    # Optional: run built-in hard-coded data only (no CSV folders)
+    import sys
+    run_builtin_only = '--builtin' in sys.argv
 
-    print("\nOrder summary:")
-    for oid in sorted(orders):
-        items_str = ', '.join(
-            f"item{it}×{qty}" for (it, qty) in orders[oid]['items'])
-        print(f"  Order {oid} ({orders[oid]['total_items']} items): {items_str}")
+    if run_builtin_only:
+        orders, totes = build_data()
+        print(f"\nLoaded {len(orders)} orders, {len(totes)} totes (built-in data)")
+        cq, _ = build_constraint_satisfying_queues(orders, totes)
+        seq_g = greedy_tote_sequence(orders, totes, cq, verbose=True)
+        res_g = simulate(seq_g, orders, totes, cq, verbose=True)
+        seq_b = sorted(totes.keys())
+        res_b = simulate(seq_b, orders, totes, cq, verbose=False)
+        print_results("Greedy | constraint queues | furthest first", seq_g, res_g, cq)
+        print_results("Baseline | sorted totes | furthest first", seq_b, res_b, cq)
+        compare_table({"Greedy": res_g, "Baseline": res_b})
+        print(f"\n  ITEM_BUFFER = {ITEM_BUFFER}s, TRAVEL = {TRAVEL}")
+        sys.exit(0)
 
-    print("\nTote contents:")
-    for tid in sorted(totes):
-        contents = ', '.join(
-            f"O{e['order']} item{e['item_type']}×{e['quantity']}"
-            for e in totes[tid])
-        print(f"  Tote {tid}: {contents}")
+    # Run all datasets from ranDataGen copy
+    if not os.path.isdir(DATA_ROOT):
+        print(f"\n  Data root not found: {DATA_ROOT}")
+        print("  Run with --builtin to use the built-in example data only.")
+        sys.exit(1)
 
-    print("\nMulti-order totes (all listed orders must be simultaneously active):")
-    for tid in sorted(totes):
-        orders_in_tote = sorted({e['order'] for e in totes[tid]})
-        if len(orders_in_tote) > 1:
-            print(f"  Tote {tid}: Orders {orders_in_tote}")
+    # Size label from folder name: "small sized samples" -> "small"
+    def size_label_from_folder(folder_name):
+        if folder_name.startswith('small'):
+            return 'small'
+        if folder_name.startswith('medium'):
+            return 'medium'
+        if folder_name.startswith('large'):
+            return 'large'
+        return folder_name.replace(' ', '_')[:10]
 
-    output_dir = '/mnt/user-data/outputs/'
-    all_results = {}
+    all_rows = []
+    for folder_name in SAMPLE_FOLDERS:
+        folder_path = os.path.join(DATA_ROOT, folder_name)
+        if not os.path.isdir(folder_path):
+            print(f"  Skip (not a directory): {folder_path}")
+            continue
+        size_label = size_label_from_folder(folder_name)
+        dataset_ids = discover_dataset_ids(folder_path)
+        print(f"\n  {folder_name}: {len(dataset_ids)} datasets (ids {dataset_ids[:5]}{'...' if len(dataset_ids) > 5 else ''})")
 
-    # ── Config 1: Constraint-satisfying queues + greedy ──────────────────
-    label = "Greedy | constraint queues | furthest first"
-    cq, _ = build_constraint_satisfying_queues(orders, totes)
-    seq   = greedy_tote_sequence(orders, totes, cq, verbose=True)
-    res   = simulate(seq, orders, totes, cq, verbose=True)
-    all_results[label] = res
-    print_results(label, seq, res, cq)
-    write_input_csv(res['event_log'],
-                    output_dir + 'input_greedy_constraint_furthest.csv')
+        for did in dataset_ids:
+            try:
+                _, _, res_g, res_b = run_single_dataset(
+                    folder_path, did, size_label, output_base, verbose=False)
+            except Exception as e:
+                print(f"    Dataset {did} failed: {e}")
+                continue
+            if res_g is not None and res_b is not None:
+                all_rows.append({
+                    'size': size_label,
+                    'id': did,
+                    'makespan_greedy': res_g['makespan'],
+                    'makespan_baseline': res_b['makespan'],
+                    'sum_greedy': res_g['sum_completion_times'],
+                    'sum_baseline': res_b['sum_completion_times'],
+                    'avg_greedy': res_g['avg_completion_time'],
+                    'avg_baseline': res_b['avg_completion_time'],
+                    'n_orders': len(res_g['order_completion_times']),
+                })
 
-    # ── Config 2: Baseline (sorted tote IDs) ─────────────────────────────
-    label2  = "Baseline | sorted totes | furthest first"
-    seq_b   = sorted(totes.keys())
-    res_b   = simulate(seq_b, orders, totes, cq, verbose=False)
-    all_results[label2] = res_b
-    print_results(label2, seq_b, res_b, cq)
-    write_input_csv(res_b['event_log'],
-                    output_dir + 'input_baseline_sorted_furthest.csv')
+    # Write results CSV for analysis (finite values only for numeric columns)
+    results_path = os.path.join(output_base, 'simulation_results.csv')
+    with open(results_path, 'w', newline='', encoding='utf-8') as f:
+        w = csv.writer(f)
+        w.writerow(['size', 'dataset_id', 'method', 'makespan', 'sum_completion_times', 'avg_completion_time', 'n_orders'])
+        for r in all_rows:
+            ms_g = r['makespan_greedy'] if r['makespan_greedy'] != float('inf') else ''
+            ms_b = r['makespan_baseline'] if r['makespan_baseline'] != float('inf') else ''
+            ac_g = r['avg_greedy'] if r['avg_greedy'] != float('inf') else ''
+            ac_b = r['avg_baseline'] if r['avg_baseline'] != float('inf') else ''
+            n = r['n_orders']
+            w.writerow([r['size'], r['id'], 'greedy', ms_g, r['sum_greedy'], ac_g, n])
+            w.writerow([r['size'], r['id'], 'baseline', ms_b, r['sum_baseline'], ac_b, n])
+    print(f"\n  Results saved to: {results_path}")
 
-    # ── Comparison ────────────────────────────────────────────────────────
-    compare_table(all_results)
+    # Summary table
+    print(f"\n{'='*68}")
+    print("  SUMMARY (all datasets)")
+    print(f"{'='*68}")
+    print(f"  {'Size':<8} {'ID':>4} {'Makespan (G)':>14} {'Makespan (B)':>14} {'SumC (G)':>12} {'SumC (B)':>12}")
+    print(f"  {'-'*8} {'-'*4} {'-'*14} {'-'*14} {'-'*12} {'-'*12}")
+    for r in all_rows:
+        ms_g = f"{r['makespan_greedy']:.1f}" if r['makespan_greedy'] != float('inf') else "inf"
+        ms_b = f"{r['makespan_baseline']:.1f}" if r['makespan_baseline'] != float('inf') else "inf"
+        print(f"  {r['size']:<8} {r['id']:>4} {ms_g:>14} {ms_b:>14} {r['sum_greedy']:>12.1f} {r['sum_baseline']:>12.1f}")
 
-    print(f"""
-{'='*68}
-  TIMING PARAMETERS USED
-{'='*68}
-  ITEM_BUFFER        = {ITEM_BUFFER}s   (between consecutive item placements)
-  TRAVEL[Conv 0]     = {TRAVEL[0]}s  (LOAD → Conv 0 midpoint)
-  TRAVEL[Conv 1]     = {TRAVEL[1]}s (LOAD → Conv 1 midpoint)
-  TRAVEL[Conv 2]     = {TRAVEL[2]}s (LOAD → Conv 2 midpoint)
-  TRAVEL[Conv 3]     = {TRAVEL[3]}s (LOAD → Conv 3 midpoint)
-""")
+    if output_base:
+        print(f"\n  Outputs written to: {output_base}")
+    print(f"\n  ITEM_BUFFER = {ITEM_BUFFER}s, TRAVEL = {TRAVEL}")
