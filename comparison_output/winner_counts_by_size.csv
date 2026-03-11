@@ -1,0 +1,4 @@
+size,scheduling_heuristic,greedy,local_search
+large,21,9,0
+medium,30,0,0
+small,30,0,0

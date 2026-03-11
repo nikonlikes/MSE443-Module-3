@@ -1,0 +1,26 @@
+SIMULATION RESULTS COMPARISON: scheduling_heuristic vs greedy vs local_search
+======================================================================
+
+Metric: sum_completion_times (lower is better).
+Scheduling heuristic: best of SPT/LPT per dataset.
+Greedy / local_search: single method per dataset.
+
+MEAN SUM COMPLETION TIMES BY SIZE AND METHOD
+method   greedy  local_search  scheduling_heuristic
+size                                               
+large   1814.85       5140.95           1094.733333
+medium   801.45        928.20            127.966667
+small    253.85        417.70             26.933333
+
+WINNER COUNTS (instances with lowest sum_completion_times)
+winner_sum_ct  scheduling_heuristic  greedy  local_search
+size                                                     
+large                            21       9             0
+medium                           30       0             0
+small                            30       0             0
+
+CONCLUSIONS
+- Scheduling heuristic has the lowest mean sum_completion_times for all sizes.
+- It wins on 100% of small and medium instances, and 70% of large instances.
+- Greedy wins on 9/30 large instances; local_search never has the minimum.
+- Variability (std) is much higher for greedy and local_search, especially for large.
