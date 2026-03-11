@@ -1,0 +1,50 @@
+
+ITEM SEQUENCE ON CONVEYOR (fixed sequence)
+Position 1: Item 18 | Type 1 (pentagon) | Tote 0
+Position 2: Item 19 | Type 2 (trapezoid) | Tote 0
+Position 3: Item 1 | Type 3 (triangle) | Tote 1
+Position 4: Item 2 | Type 3 (triangle) | Tote 1
+Position 5: Item 3 | Type 3 (triangle) | Tote 1
+Position 6: Item 4 | Type 1 (pentagon) | Tote 1
+Position 7: Item 5 | Type 1 (pentagon) | Tote 1
+Position 8: Item 17 | Type 0 (circle) | Tote 1
+Position 9: Item 6 | Type 2 (trapezoid) | Tote 2
+Position 10: Item 7 | Type 2 (trapezoid) | Tote 2
+Position 11: Item 8 | Type 2 (trapezoid) | Tote 2
+Position 12: Item 10 | Type 0 (circle) | Tote 2
+Position 13: Item 14 | Type 2 (trapezoid) | Tote 2
+Position 14: Item 15 | Type 2 (trapezoid) | Tote 2
+Position 15: Item 16 | Type 2 (trapezoid) | Tote 2
+Position 16: Item 9 | Type 3 (triangle) | Tote 3
+Position 17: Item 11 | Type 3 (triangle) | Tote 3
+Position 18: Item 12 | Type 3 (triangle) | Tote 3
+Position 19: Item 13 | Type 3 (triangle) | Tote 3
+
+BELT → ORDER ASSIGNMENTS (cascade)
+Belt 1 processes Order 2
+Belt 1 processes Order 3
+Belt 1 processes Order 4
+Belt 2 processes Order 1
+
+PICKS WITH TIME (cascade)
+Belt 1 picks Item 18 (Type 1, Tote 0) for Order 4 → Time = 6.00 sec
+Belt 1 picks Item 19 (Type 2, Tote 0) for Order 4 → Time = 9.00 sec
+Belt 1 picks Item 1 (Type 3, Tote 1) for Order 3 → Time = 12.00 sec
+Belt 1 picks Item 2 (Type 3, Tote 1) for Order 3 → Time = 15.00 sec
+Belt 1 picks Item 3 (Type 3, Tote 1) for Order 3 → Time = 18.00 sec
+Belt 1 picks Item 17 (Type 0, Tote 1) for Order 3 → Time = 27.00 sec
+Belt 2 picks Item 4 (Type 1, Tote 1) for Order 1 → Time = 28.50 sec
+Belt 1 picks Item 6 (Type 2, Tote 2) for Order 3 → Time = 30.00 sec
+Belt 2 picks Item 5 (Type 1, Tote 1) for Order 1 → Time = 31.50 sec
+Belt 1 picks Item 7 (Type 2, Tote 2) for Order 3 → Time = 33.00 sec
+Belt 1 picks Item 8 (Type 2, Tote 2) for Order 3 → Time = 36.00 sec
+Belt 1 picks Item 10 (Type 0, Tote 2) for Order 2 → Time = 39.00 sec
+Belt 1 picks Item 14 (Type 2, Tote 2) for Order 2 → Time = 42.00 sec
+Belt 1 picks Item 15 (Type 2, Tote 2) for Order 2 → Time = 45.00 sec
+Belt 1 picks Item 16 (Type 2, Tote 2) for Order 2 → Time = 48.00 sec
+Belt 1 picks Item 9 (Type 3, Tote 3) for Order 2 → Time = 51.00 sec
+Belt 2 picks Item 11 (Type 3, Tote 3) for Order 1 → Time = 61.50 sec
+Belt 2 picks Item 12 (Type 3, Tote 3) for Order 1 → Time = 64.50 sec
+Belt 2 picks Item 13 (Type 3, Tote 3) for Order 1 → Time = 67.50 sec
+
+SYSTEM COMPLETION TIME (cascade): 67.5
