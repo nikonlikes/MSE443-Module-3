@@ -1,0 +1,72 @@
+
+ITEM SEQUENCE ON CONVEYOR
+Position 1: Item 13 | Type 1 (pentagon) | Tote 2
+Position 2: Item 28 | Type 2 (trapezoid) | Tote 5
+Position 3: Item 26 | Type 4 (star) | Tote 3
+Position 4: Item 24 | Type 4 (star) | Tote 3
+Position 5: Item 25 | Type 4 (star) | Tote 3
+Position 6: Item 27 | Type 4 (star) | Tote 0
+Position 7: Item 23 | Type 5 (moon) | Tote 0
+Position 8: Item 17 | Type 6 (heart) | Tote 6
+Position 9: Item 20 | Type 4 (star) | Tote 6
+Position 10: Item 8 | Type 3 (triangle) | Tote 6
+Position 11: Item 5 | Type 6 (heart) | Tote 6
+Position 12: Item 7 | Type 4 (star) | Tote 6
+Position 13: Item 9 | Type 3 (triangle) | Tote 6
+Position 14: Item 12 | Type 4 (star) | Tote 6
+Position 15: Item 15 | Type 6 (heart) | Tote 6
+Position 16: Item 19 | Type 6 (heart) | Tote 6
+Position 17: Item 18 | Type 6 (heart) | Tote 6
+Position 18: Item 6 | Type 3 (triangle) | Tote 6
+Position 19: Item 4 | Type 6 (heart) | Tote 6
+Position 20: Item 14 | Type 6 (heart) | Tote 6
+Position 21: Item 10 | Type 4 (star) | Tote 6
+Position 22: Item 3 | Type 6 (heart) | Tote 6
+Position 23: Item 1 | Type 3 (triangle) | Tote 6
+Position 24: Item 11 | Type 4 (star) | Tote 6
+Position 25: Item 2 | Type 3 (triangle) | Tote 6
+Position 26: Item 22 | Type 0 (circle) | Tote 6
+Position 27: Item 16 | Type 6 (heart) | Tote 6
+Position 28: Item 21 | Type 0 (circle) | Tote 6
+
+BELT → ORDER ASSIGNMENTS
+Belt 1 processes Order 1
+Belt 1 processes Order 3
+Belt 1 processes Order 4
+Belt 1 processes Order 5
+Belt 1 processes Order 6
+Belt 1 processes Order 7
+Belt 1 processes Order 8
+Belt 2 processes Order 2
+
+PICKS WITH TIME
+Belt 1 picks Item 13 (Type 1, Tote 2) for Order 4 → Time = 6.00 sec
+Belt 1 picks Item 28 (Type 2, Tote 5) for Order 8 → Time = 9.00 sec
+Belt 1 picks Item 26 (Type 4, Tote 3) for Order 7 → Time = 12.00 sec
+Belt 1 picks Item 24 (Type 4, Tote 3) for Order 8 → Time = 15.00 sec
+Belt 1 picks Item 25 (Type 4, Tote 3) for Order 7 → Time = 18.00 sec
+Belt 1 picks Item 23 (Type 5, Tote 0) for Order 7 → Time = 24.00 sec
+Belt 1 picks Item 17 (Type 6, Tote 6) for Order 5 → Time = 27.00 sec
+Belt 2 picks Item 27 (Type 4, Tote 0) for Order 2 → Time = 28.50 sec
+Belt 1 picks Item 20 (Type 4, Tote 6) for Order 4 → Time = 30.00 sec
+Belt 1 picks Item 8 (Type 3, Tote 6) for Order 1 → Time = 33.00 sec
+Belt 1 picks Item 7 (Type 4, Tote 6) for Order 6 → Time = 39.00 sec
+Belt 1 picks Item 9 (Type 3, Tote 6) for Order 1 → Time = 42.00 sec
+Belt 2 picks Item 5 (Type 6, Tote 6) for Order 2 → Time = 43.50 sec
+Belt 1 picks Item 12 (Type 4, Tote 6) for Order 4 → Time = 45.00 sec
+Belt 1 picks Item 15 (Type 6, Tote 6) for Order 5 → Time = 48.00 sec
+Belt 1 picks Item 6 (Type 3, Tote 6) for Order 3 → Time = 57.00 sec
+Belt 2 picks Item 19 (Type 6, Tote 6) for Order 2 → Time = 58.50 sec
+Belt 1 picks Item 4 (Type 6, Tote 6) for Order 6 → Time = 60.00 sec
+Belt 2 picks Item 18 (Type 6, Tote 6) for Order 2 → Time = 61.50 sec
+Belt 1 picks Item 14 (Type 6, Tote 6) for Order 6 → Time = 63.00 sec
+Belt 1 picks Item 10 (Type 4, Tote 6) for Order 4 → Time = 66.00 sec
+Belt 1 picks Item 3 (Type 6, Tote 6) for Order 5 → Time = 69.00 sec
+Belt 1 picks Item 11 (Type 4, Tote 6) for Order 7 → Time = 75.00 sec
+Belt 1 picks Item 2 (Type 3, Tote 6) for Order 3 → Time = 78.00 sec
+Belt 2 picks Item 1 (Type 3, Tote 6) for Order 2 → Time = 79.50 sec
+Belt 1 picks Item 22 (Type 0, Tote 6) for Order 6 → Time = 81.00 sec
+Belt 1 picks Item 16 (Type 6, Tote 6) for Order 6 → Time = 84.00 sec
+Belt 1 picks Item 21 (Type 0, Tote 6) for Order 6 → Time = 87.00 sec
+
+SYSTEM COMPLETION TIME: 87.0

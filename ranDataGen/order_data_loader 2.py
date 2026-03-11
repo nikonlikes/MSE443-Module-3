@@ -7,23 +7,6 @@ Empty cells are omitted from the DataFrame.
 """
 
 import pandas as pd
-from pathlib import Path
-from pandas.errors import EmptyDataError
-
-
-def _resolve_csv_path(base_dir: str, csv_path: str) -> Path:
-    """
-    Resolve CSV paths robustly for notebooks/scripts with different CWDs.
-
-    - If `base_dir` is absolute, use it as-is.
-    - If `base_dir` is relative, interpret it relative to the project root
-      (the parent directory of `ranDataGen/`).
-    """
-    project_root = Path(__file__).resolve().parent.parent
-    base = Path(base_dir) if base_dir else Path()
-    if base.is_absolute():
-        return (base / csv_path).resolve()
-    return (project_root / base / csv_path).resolve()
 
 
 def load_order_data(
@@ -51,36 +34,11 @@ def load_order_data(
     >>> df[(df['order']==1) & (df['item_slot']==0)]
     ...  # 3 instances of item type 3 in tote 1
     """
-    it_csv = _resolve_csv_path(base_dir, itemtypes_path)
-    qt_csv = _resolve_csv_path(base_dir, quantities_path)
-    tt_csv = _resolve_csv_path(base_dir, totes_path)
+    base = base_dir.rstrip('/') + '/' if base_dir else ''
 
-    for p in (it_csv, qt_csv, tt_csv):
-        if not p.exists():
-            raise FileNotFoundError(f"CSV not found: {p}")
-        if p.stat().st_size == 0:
-            raise ValueError(f"CSV is empty (0 bytes): {p}")
-
-    def _read_or_explain(path: Path) -> pd.DataFrame:
-        try:
-            return pd.read_csv(path, header=None)
-        except EmptyDataError as e:
-            # On macOS with iCloud Drive, files can show a nonzero logical size
-            # but have no readable bytes until downloaded locally.
-            try:
-                readable_bytes = len(path.read_bytes())
-            except Exception:
-                readable_bytes = None
-            if path.exists() and path.stat().st_size > 0 and readable_bytes == 0:
-                raise ValueError(
-                    "CSV appears to be an iCloud/placeholder file (reports a size but contains 0 readable bytes). "
-                    f"Download it locally or move the project out of iCloud-synced folders, then retry. Path: {path}"
-                ) from e
-            raise
-
-    it_df = _read_or_explain(it_csv)
-    qt_df = _read_or_explain(qt_csv)
-    tt_df = _read_or_explain(tt_csv)
+    it_df = pd.read_csv(base + itemtypes_path, header=None)
+    qt_df = pd.read_csv(base + quantities_path, header=None)
+    tt_df = pd.read_csv(base + totes_path, header=None)
 
     rows = []
     for order_idx, (it_row, qt_row, tt_row) in enumerate(zip(

@@ -1,0 +1,324 @@
+
+ITEM SEQUENCE ON CONVEYOR
+Position 1: Item 109 | Type 1 (pentagon) | Tote 14
+Position 2: Item 110 | Type 1 (pentagon) | Tote 14
+Position 3: Item 6 | Type 3 (triangle) | Tote 17
+Position 4: Item 79 | Type 3 (triangle) | Tote 15
+Position 5: Item 78 | Type 3 (triangle) | Tote 15
+Position 6: Item 118 | Type 0 (circle) | Tote 15
+Position 7: Item 53 | Type 5 (moon) | Tote 10
+Position 8: Item 52 | Type 5 (moon) | Tote 10
+Position 9: Item 51 | Type 5 (moon) | Tote 10
+Position 10: Item 50 | Type 3 (triangle) | Tote 10
+Position 11: Item 49 | Type 3 (triangle) | Tote 10
+Position 12: Item 47 | Type 6 (heart) | Tote 10
+Position 13: Item 46 | Type 1 (pentagon) | Tote 10
+Position 14: Item 45 | Type 1 (pentagon) | Tote 10
+Position 15: Item 44 | Type 3 (triangle) | Tote 10
+Position 16: Item 85 | Type 0 (circle) | Tote 0
+Position 17: Item 93 | Type 3 (triangle) | Tote 0
+Position 18: Item 83 | Type 0 (circle) | Tote 0
+Position 19: Item 91 | Type 6 (heart) | Tote 0
+Position 20: Item 94 | Type 3 (triangle) | Tote 0
+Position 21: Item 84 | Type 0 (circle) | Tote 0
+Position 22: Item 92 | Type 6 (heart) | Tote 0
+Position 23: Item 57 | Type 1 (pentagon) | Tote 3
+Position 24: Item 56 | Type 1 (pentagon) | Tote 3
+Position 25: Item 55 | Type 3 (triangle) | Tote 3
+Position 26: Item 54 | Type 5 (moon) | Tote 3
+Position 27: Item 33 | Type 0 (circle) | Tote 3
+Position 28: Item 32 | Type 2 (trapezoid) | Tote 3
+Position 29: Item 31 | Type 2 (trapezoid) | Tote 3
+Position 30: Item 30 | Type 2 (trapezoid) | Tote 3
+Position 31: Item 29 | Type 4 (star) | Tote 3
+Position 32: Item 22 | Type 0 (circle) | Tote 3
+Position 33: Item 21 | Type 0 (circle) | Tote 3
+Position 34: Item 20 | Type 4 (star) | Tote 3
+Position 35: Item 19 | Type 6 (heart) | Tote 3
+Position 36: Item 18 | Type 6 (heart) | Tote 3
+Position 37: Item 17 | Type 6 (heart) | Tote 3
+Position 38: Item 28 | Type 2 (trapezoid) | Tote 12
+Position 39: Item 27 | Type 4 (star) | Tote 12
+Position 40: Item 122 | Type 1 (pentagon) | Tote 1
+Position 41: Item 127 | Type 2 (trapezoid) | Tote 1
+Position 42: Item 124 | Type 5 (moon) | Tote 1
+Position 43: Item 121 | Type 1 (pentagon) | Tote 1
+Position 44: Item 128 | Type 2 (trapezoid) | Tote 1
+Position 45: Item 125 | Type 5 (moon) | Tote 1
+Position 46: Item 123 | Type 1 (pentagon) | Tote 1
+Position 47: Item 126 | Type 2 (trapezoid) | Tote 1
+Position 48: Item 80 | Type 0 (circle) | Tote 6
+Position 49: Item 82 | Type 0 (circle) | Tote 6
+Position 50: Item 77 | Type 4 (star) | Tote 6
+Position 51: Item 87 | Type 3 (triangle) | Tote 6
+Position 52: Item 117 | Type 5 (moon) | Tote 6
+Position 53: Item 120 | Type 6 (heart) | Tote 6
+Position 54: Item 81 | Type 0 (circle) | Tote 6
+Position 55: Item 119 | Type 6 (heart) | Tote 6
+Position 56: Item 76 | Type 4 (star) | Tote 6
+Position 57: Item 13 | Type 1 (pentagon) | Tote 6
+Position 58: Item 12 | Type 4 (star) | Tote 6
+Position 59: Item 11 | Type 4 (star) | Tote 6
+Position 60: Item 10 | Type 4 (star) | Tote 6
+Position 61: Item 9 | Type 3 (triangle) | Tote 6
+Position 62: Item 8 | Type 3 (triangle) | Tote 6
+Position 63: Item 7 | Type 4 (star) | Tote 6
+Position 64: Item 34 | Type 5 (moon) | Tote 8
+Position 65: Item 2 | Type 3 (triangle) | Tote 8
+Position 66: Item 100 | Type 5 (moon) | Tote 8
+Position 67: Item 99 | Type 6 (heart) | Tote 8
+Position 68: Item 96 | Type 3 (triangle) | Tote 8
+Position 69: Item 95 | Type 3 (triangle) | Tote 8
+Position 70: Item 135 | Type 6 (heart) | Tote 8
+Position 71: Item 97 | Type 6 (heart) | Tote 8
+Position 72: Item 101 | Type 5 (moon) | Tote 8
+Position 73: Item 102 | Type 5 (moon) | Tote 8
+Position 74: Item 98 | Type 6 (heart) | Tote 8
+Position 75: Item 35 | Type 5 (moon) | Tote 8
+Position 76: Item 1 | Type 3 (triangle) | Tote 8
+Position 77: Item 116 | Type 5 (moon) | Tote 11
+Position 78: Item 115 | Type 5 (moon) | Tote 11
+Position 79: Item 63 | Type 1 (pentagon) | Tote 11
+Position 80: Item 62 | Type 1 (pentagon) | Tote 11
+Position 81: Item 61 | Type 5 (moon) | Tote 11
+Position 82: Item 60 | Type 3 (triangle) | Tote 11
+Position 83: Item 59 | Type 3 (triangle) | Tote 11
+Position 84: Item 58 | Type 3 (triangle) | Tote 11
+Position 85: Item 37 | Type 0 (circle) | Tote 11
+Position 86: Item 36 | Type 0 (circle) | Tote 11
+Position 87: Item 108 | Type 5 (moon) | Tote 13
+Position 88: Item 106 | Type 5 (moon) | Tote 13
+Position 89: Item 86 | Type 2 (trapezoid) | Tote 13
+Position 90: Item 40 | Type 4 (star) | Tote 13
+Position 91: Item 107 | Type 5 (moon) | Tote 13
+Position 92: Item 75 | Type 1 (pentagon) | Tote 13
+Position 93: Item 74 | Type 1 (pentagon) | Tote 13
+Position 94: Item 73 | Type 4 (star) | Tote 13
+Position 95: Item 72 | Type 4 (star) | Tote 13
+Position 96: Item 48 | Type 2 (trapezoid) | Tote 13
+Position 97: Item 71 | Type 4 (star) | Tote 13
+Position 98: Item 38 | Type 4 (star) | Tote 13
+Position 99: Item 5 | Type 6 (heart) | Tote 13
+Position 100: Item 4 | Type 6 (heart) | Tote 13
+Position 101: Item 3 | Type 6 (heart) | Tote 13
+Position 102: Item 39 | Type 4 (star) | Tote 13
+Position 103: Item 105 | Type 2 (trapezoid) | Tote 4
+Position 104: Item 64 | Type 2 (trapezoid) | Tote 4
+Position 105: Item 88 | Type 0 (circle) | Tote 4
+Position 106: Item 90 | Type 5 (moon) | Tote 4
+Position 107: Item 89 | Type 1 (pentagon) | Tote 4
+Position 108: Item 104 | Type 2 (trapezoid) | Tote 4
+Position 109: Item 103 | Type 2 (trapezoid) | Tote 4
+Position 110: Item 69 | Type 4 (star) | Tote 4
+Position 111: Item 68 | Type 4 (star) | Tote 4
+Position 112: Item 67 | Type 0 (circle) | Tote 4
+Position 113: Item 66 | Type 2 (trapezoid) | Tote 4
+Position 114: Item 65 | Type 2 (trapezoid) | Tote 4
+Position 115: Item 26 | Type 4 (star) | Tote 4
+Position 116: Item 25 | Type 4 (star) | Tote 4
+Position 117: Item 24 | Type 4 (star) | Tote 4
+Position 118: Item 23 | Type 5 (moon) | Tote 4
+Position 119: Item 114 | Type 6 (heart) | Tote 7
+Position 120: Item 112 | Type 6 (heart) | Tote 7
+Position 121: Item 138 | Type 2 (trapezoid) | Tote 7
+Position 122: Item 139 | Type 2 (trapezoid) | Tote 7
+Position 123: Item 140 | Type 5 (moon) | Tote 7
+Position 124: Item 141 | Type 5 (moon) | Tote 7
+Position 125: Item 136 | Type 6 (heart) | Tote 7
+Position 126: Item 113 | Type 6 (heart) | Tote 7
+Position 127: Item 137 | Type 2 (trapezoid) | Tote 7
+Position 128: Item 111 | Type 2 (trapezoid) | Tote 7
+Position 129: Item 130 | Type 2 (trapezoid) | Tote 2
+Position 130: Item 134 | Type 1 (pentagon) | Tote 2
+Position 131: Item 131 | Type 2 (trapezoid) | Tote 2
+Position 132: Item 132 | Type 1 (pentagon) | Tote 2
+Position 133: Item 133 | Type 1 (pentagon) | Tote 2
+Position 134: Item 129 | Type 2 (trapezoid) | Tote 2
+Position 135: Item 70 | Type 1 (pentagon) | Tote 2
+Position 136: Item 43 | Type 5 (moon) | Tote 2
+Position 137: Item 42 | Type 5 (moon) | Tote 2
+Position 138: Item 41 | Type 5 (moon) | Tote 2
+Position 139: Item 16 | Type 6 (heart) | Tote 2
+Position 140: Item 15 | Type 6 (heart) | Tote 2
+Position 141: Item 14 | Type 6 (heart) | Tote 2
+
+BELT → ORDER ASSIGNMENTS
+Belt 1 processes Order 3
+Belt 1 processes Order 6
+Belt 1 processes Order 8
+Belt 1 processes Order 13
+Belt 1 processes Order 18
+Belt 1 processes Order 21
+Belt 1 processes Order 28
+Belt 1 processes Order 31
+Belt 1 processes Order 33
+Belt 2 processes Order 1
+Belt 2 processes Order 2
+Belt 2 processes Order 5
+Belt 2 processes Order 12
+Belt 2 processes Order 15
+Belt 2 processes Order 16
+Belt 2 processes Order 17
+Belt 2 processes Order 19
+Belt 2 processes Order 22
+Belt 2 processes Order 32
+Belt 3 processes Order 4
+Belt 3 processes Order 7
+Belt 3 processes Order 23
+Belt 3 processes Order 25
+Belt 3 processes Order 29
+Belt 4 processes Order 9
+Belt 4 processes Order 10
+Belt 4 processes Order 11
+Belt 4 processes Order 14
+Belt 4 processes Order 20
+Belt 4 processes Order 24
+Belt 4 processes Order 26
+Belt 4 processes Order 27
+Belt 4 processes Order 30
+Belt 4 processes Order 34
+
+PICKS WITH TIME
+Belt 1 picks Item 109 (Type 1, Tote 14) for Order 33 → Time = 6.00 sec
+Belt 2 picks Item 6 (Type 3, Tote 17) for Order 15 → Time = 19.50 sec
+Belt 2 picks Item 79 (Type 3, Tote 15) for Order 2 → Time = 22.50 sec
+Belt 2 picks Item 78 (Type 3, Tote 15) for Order 1 → Time = 25.50 sec
+Belt 4 picks Item 110 (Type 1, Tote 14) for Order 14 → Time = 31.50 sec
+Belt 2 picks Item 50 (Type 3, Tote 10) for Order 17 → Time = 40.50 sec
+Belt 1 picks Item 46 (Type 1, Tote 10) for Order 33 → Time = 42.00 sec
+Belt 4 picks Item 118 (Type 0, Tote 15) for Order 10 → Time = 43.50 sec
+Belt 4 picks Item 53 (Type 5, Tote 10) for Order 24 → Time = 46.50 sec
+Belt 4 picks Item 52 (Type 5, Tote 10) for Order 27 → Time = 49.50 sec
+Belt 2 picks Item 45 (Type 1, Tote 10) for Order 32 → Time = 52.50 sec
+Belt 4 picks Item 51 (Type 5, Tote 10) for Order 11 → Time = 52.50 sec
+Belt 3 picks Item 47 (Type 6, Tote 10) for Order 29 → Time = 54.00 sec
+Belt 2 picks Item 85 (Type 0, Tote 0) for Order 12 → Time = 58.50 sec
+Belt 4 picks Item 49 (Type 3, Tote 10) for Order 14 → Time = 58.50 sec
+Belt 1 picks Item 91 (Type 6, Tote 0) for Order 6 → Time = 60.00 sec
+Belt 2 picks Item 93 (Type 3, Tote 0) for Order 17 → Time = 61.50 sec
+Belt 3 picks Item 44 (Type 3, Tote 10) for Order 23 → Time = 63.00 sec
+Belt 2 picks Item 83 (Type 0, Tote 0) for Order 22 → Time = 64.50 sec
+Belt 1 picks Item 84 (Type 0, Tote 0) for Order 6 → Time = 66.00 sec
+Belt 2 picks Item 94 (Type 3, Tote 0) for Order 1 → Time = 70.50 sec
+Belt 2 picks Item 56 (Type 1, Tote 3) for Order 19 → Time = 82.50 sec
+Belt 1 picks Item 33 (Type 0, Tote 3) for Order 18 → Time = 84.00 sec
+Belt 2 picks Item 55 (Type 3, Tote 3) for Order 17 → Time = 85.50 sec
+Belt 1 picks Item 31 (Type 2, Tote 3) for Order 33 → Time = 90.00 sec
+Belt 4 picks Item 92 (Type 6, Tote 0) for Order 14 → Time = 91.50 sec
+Belt 4 picks Item 57 (Type 1, Tote 3) for Order 14 → Time = 94.50 sec
+Belt 1 picks Item 29 (Type 4, Tote 3) for Order 6 → Time = 96.00 sec
+Belt 1 picks Item 22 (Type 0, Tote 3) for Order 6 → Time = 99.00 sec
+Belt 2 picks Item 30 (Type 2, Tote 3) for Order 22 → Time = 100.50 sec
+Belt 4 picks Item 54 (Type 5, Tote 3) for Order 27 → Time = 103.50 sec
+Belt 2 picks Item 21 (Type 0, Tote 3) for Order 22 → Time = 109.50 sec
+Belt 4 picks Item 32 (Type 2, Tote 3) for Order 10 → Time = 109.50 sec
+Belt 1 picks Item 17 (Type 6, Tote 3) for Order 31 → Time = 114.00 sec
+Belt 2 picks Item 18 (Type 6, Tote 3) for Order 5 → Time = 118.50 sec
+Belt 3 picks Item 20 (Type 4, Tote 3) for Order 7 → Time = 120.00 sec
+Belt 2 picks Item 27 (Type 4, Tote 12) for Order 12 → Time = 127.50 sec
+Belt 2 picks Item 122 (Type 1, Tote 1) for Order 17 → Time = 130.50 sec
+Belt 4 picks Item 19 (Type 6, Tote 3) for Order 26 → Time = 130.50 sec
+Belt 1 picks Item 128 (Type 2, Tote 1) for Order 33 → Time = 135.00 sec
+Belt 4 picks Item 28 (Type 2, Tote 12) for Order 10 → Time = 139.50 sec
+Belt 1 picks Item 126 (Type 2, Tote 1) for Order 18 → Time = 144.00 sec
+Belt 2 picks Item 123 (Type 1, Tote 1) for Order 32 → Time = 148.50 sec
+Belt 4 picks Item 127 (Type 2, Tote 1) for Order 27 → Time = 148.50 sec
+Belt 1 picks Item 82 (Type 0, Tote 6) for Order 21 → Time = 150.00 sec
+Belt 4 picks Item 124 (Type 5, Tote 1) for Order 11 → Time = 151.50 sec
+Belt 2 picks Item 80 (Type 0, Tote 6) for Order 12 → Time = 154.50 sec
+Belt 4 picks Item 121 (Type 1, Tote 1) for Order 20 → Time = 154.50 sec
+Belt 2 picks Item 77 (Type 4, Tote 6) for Order 12 → Time = 160.50 sec
+Belt 4 picks Item 125 (Type 5, Tote 1) for Order 26 → Time = 160.50 sec
+Belt 2 picks Item 87 (Type 3, Tote 6) for Order 15 → Time = 163.50 sec
+Belt 2 picks Item 117 (Type 5, Tote 6) for Order 15 → Time = 166.50 sec
+Belt 1 picks Item 76 (Type 4, Tote 6) for Order 8 → Time = 171.00 sec
+Belt 1 picks Item 13 (Type 1, Tote 6) for Order 28 → Time = 174.00 sec
+Belt 1 picks Item 10 (Type 4, Tote 6) for Order 18 → Time = 183.00 sec
+Belt 2 picks Item 12 (Type 4, Tote 6) for Order 12 → Time = 184.50 sec
+Belt 4 picks Item 120 (Type 6, Tote 6) for Order 34 → Time = 184.50 sec
+Belt 4 picks Item 81 (Type 0, Tote 6) for Order 24 → Time = 187.50 sec
+Belt 1 picks Item 8 (Type 3, Tote 6) for Order 3 → Time = 189.00 sec
+Belt 4 picks Item 119 (Type 6, Tote 6) for Order 26 → Time = 190.50 sec
+Belt 2 picks Item 9 (Type 3, Tote 6) for Order 16 → Time = 193.50 sec
+Belt 3 picks Item 11 (Type 4, Tote 6) for Order 7 → Time = 195.00 sec
+Belt 2 picks Item 34 (Type 5, Tote 8) for Order 15 → Time = 202.50 sec
+Belt 1 picks Item 99 (Type 6, Tote 8) for Order 31 → Time = 204.00 sec
+Belt 3 picks Item 7 (Type 4, Tote 6) for Order 4 → Time = 207.00 sec
+Belt 2 picks Item 100 (Type 5, Tote 8) for Order 32 → Time = 208.50 sec
+Belt 1 picks Item 95 (Type 3, Tote 8) for Order 3 → Time = 210.00 sec
+Belt 3 picks Item 2 (Type 3, Tote 8) for Order 25 → Time = 213.00 sec
+Belt 1 picks Item 102 (Type 5, Tote 8) for Order 13 → Time = 222.00 sec
+Belt 3 picks Item 135 (Type 6, Tote 8) for Order 25 → Time = 228.00 sec
+Belt 4 picks Item 96 (Type 3, Tote 8) for Order 26 → Time = 229.50 sec
+Belt 1 picks Item 1 (Type 3, Tote 8) for Order 21 → Time = 231.00 sec
+Belt 3 picks Item 97 (Type 6, Tote 8) for Order 29 → Time = 231.00 sec
+Belt 1 picks Item 116 (Type 5, Tote 11) for Order 31 → Time = 234.00 sec
+Belt 1 picks Item 115 (Type 5, Tote 11) for Order 13 → Time = 237.00 sec
+Belt 1 picks Item 63 (Type 1, Tote 11) for Order 33 → Time = 240.00 sec
+Belt 3 picks Item 98 (Type 6, Tote 8) for Order 29 → Time = 240.00 sec
+Belt 4 picks Item 101 (Type 5, Tote 8) for Order 30 → Time = 241.50 sec
+Belt 1 picks Item 60 (Type 3, Tote 11) for Order 21 → Time = 249.00 sec
+Belt 4 picks Item 35 (Type 5, Tote 8) for Order 26 → Time = 250.50 sec
+Belt 1 picks Item 37 (Type 0, Tote 11) for Order 31 → Time = 258.00 sec
+Belt 3 picks Item 62 (Type 1, Tote 11) for Order 4 → Time = 258.00 sec
+Belt 3 picks Item 59 (Type 3, Tote 11) for Order 25 → Time = 267.00 sec
+Belt 2 picks Item 36 (Type 0, Tote 11) for Order 22 → Time = 268.50 sec
+Belt 4 picks Item 61 (Type 5, Tote 11) for Order 26 → Time = 268.50 sec
+Belt 2 picks Item 108 (Type 5, Tote 13) for Order 17 → Time = 271.50 sec
+Belt 4 picks Item 58 (Type 3, Tote 11) for Order 26 → Time = 277.50 sec
+Belt 2 picks Item 107 (Type 5, Tote 13) for Order 16 → Time = 283.50 sec
+Belt 1 picks Item 73 (Type 4, Tote 13) for Order 18 → Time = 285.00 sec
+Belt 3 picks Item 86 (Type 2, Tote 13) for Order 29 → Time = 285.00 sec
+Belt 2 picks Item 75 (Type 1, Tote 13) for Order 17 → Time = 286.50 sec
+Belt 1 picks Item 72 (Type 4, Tote 13) for Order 21 → Time = 288.00 sec
+Belt 3 picks Item 40 (Type 4, Tote 13) for Order 4 → Time = 288.00 sec
+Belt 2 picks Item 74 (Type 1, Tote 13) for Order 32 → Time = 289.50 sec
+Belt 4 picks Item 106 (Type 5, Tote 13) for Order 30 → Time = 289.50 sec
+Belt 1 picks Item 71 (Type 4, Tote 13) for Order 21 → Time = 294.00 sec
+Belt 2 picks Item 4 (Type 6, Tote 13) for Order 5 → Time = 310.50 sec
+Belt 2 picks Item 3 (Type 6, Tote 13) for Order 2 → Time = 313.50 sec
+Belt 4 picks Item 48 (Type 2, Tote 13) for Order 34 → Time = 313.50 sec
+Belt 3 picks Item 5 (Type 6, Tote 13) for Order 25 → Time = 315.00 sec
+Belt 1 picks Item 88 (Type 0, Tote 4) for Order 21 → Time = 318.00 sec
+Belt 2 picks Item 105 (Type 2, Tote 4) for Order 32 → Time = 319.50 sec
+Belt 4 picks Item 38 (Type 4, Tote 13) for Order 20 → Time = 319.50 sec
+Belt 1 picks Item 90 (Type 5, Tote 4) for Order 13 → Time = 321.00 sec
+Belt 2 picks Item 64 (Type 2, Tote 4) for Order 32 → Time = 322.50 sec
+Belt 3 picks Item 39 (Type 4, Tote 13) for Order 7 → Time = 324.00 sec
+Belt 2 picks Item 104 (Type 2, Tote 4) for Order 32 → Time = 334.50 sec
+Belt 2 picks Item 103 (Type 2, Tote 4) for Order 15 → Time = 337.50 sec
+Belt 1 picks Item 67 (Type 0, Tote 4) for Order 21 → Time = 339.00 sec
+Belt 2 picks Item 68 (Type 4, Tote 4) for Order 2 → Time = 343.50 sec
+Belt 1 picks Item 65 (Type 2, Tote 4) for Order 33 → Time = 345.00 sec
+Belt 4 picks Item 89 (Type 1, Tote 4) for Order 24 → Time = 346.50 sec
+Belt 4 picks Item 69 (Type 4, Tote 4) for Order 20 → Time = 355.50 sec
+Belt 1 picks Item 114 (Type 6, Tote 7) for Order 6 → Time = 360.00 sec
+Belt 4 picks Item 66 (Type 2, Tote 4) for Order 34 → Time = 364.50 sec
+Belt 1 picks Item 138 (Type 2, Tote 7) for Order 18 → Time = 366.00 sec
+Belt 1 picks Item 139 (Type 2, Tote 7) for Order 8 → Time = 369.00 sec
+Belt 3 picks Item 24 (Type 4, Tote 4) for Order 4 → Time = 369.00 sec
+Belt 2 picks Item 112 (Type 6, Tote 7) for Order 2 → Time = 370.50 sec
+Belt 4 picks Item 26 (Type 4, Tote 4) for Order 20 → Time = 370.50 sec
+Belt 3 picks Item 23 (Type 5, Tote 4) for Order 7 → Time = 372.00 sec
+Belt 4 picks Item 25 (Type 4, Tote 4) for Order 9 → Time = 373.50 sec
+Belt 1 picks Item 136 (Type 6, Tote 7) for Order 6 → Time = 378.00 sec
+Belt 1 picks Item 113 (Type 6, Tote 7) for Order 33 → Time = 381.00 sec
+Belt 2 picks Item 141 (Type 5, Tote 7) for Order 32 → Time = 382.50 sec
+Belt 1 picks Item 137 (Type 2, Tote 7) for Order 18 → Time = 384.00 sec
+Belt 1 picks Item 134 (Type 1, Tote 2) for Order 28 → Time = 393.00 sec
+Belt 4 picks Item 140 (Type 5, Tote 7) for Order 34 → Time = 394.50 sec
+Belt 2 picks Item 133 (Type 1, Tote 2) for Order 16 → Time = 409.50 sec
+Belt 4 picks Item 111 (Type 2, Tote 7) for Order 34 → Time = 409.50 sec
+Belt 4 picks Item 130 (Type 2, Tote 2) for Order 10 → Time = 412.50 sec
+Belt 2 picks Item 70 (Type 1, Tote 2) for Order 16 → Time = 415.50 sec
+Belt 2 picks Item 43 (Type 5, Tote 2) for Order 15 → Time = 418.50 sec
+Belt 4 picks Item 131 (Type 2, Tote 2) for Order 27 → Time = 418.50 sec
+Belt 4 picks Item 132 (Type 1, Tote 2) for Order 20 → Time = 421.50 sec
+Belt 2 picks Item 16 (Type 6, Tote 2) for Order 5 → Time = 427.50 sec
+Belt 4 picks Item 129 (Type 2, Tote 2) for Order 27 → Time = 427.50 sec
+Belt 2 picks Item 14 (Type 6, Tote 2) for Order 2 → Time = 433.50 sec
+Belt 4 picks Item 42 (Type 5, Tote 2) for Order 27 → Time = 436.50 sec
+Belt 4 picks Item 41 (Type 5, Tote 2) for Order 34 → Time = 439.50 sec
+Belt 4 picks Item 15 (Type 6, Tote 2) for Order 26 → Time = 445.50 sec
+
+SYSTEM COMPLETION TIME: 445.5
