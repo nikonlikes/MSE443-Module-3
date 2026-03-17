@@ -58,13 +58,22 @@ def schedule_orders(processing_times, n_conveyors, reverse=False):
 
 
 def compute_metrics(assignment, processing_times, n_conveyors):
-    loads = []
-    for c in range(n_conveyors):
-        loads.append(sum(processing_times[i] for i in assignment[c]))
+    # makespan = max conveyor load (unchanged)
+    loads    = [sum(processing_times[i] for i in assignment[c]) for c in range(n_conveyors)]
     makespan = max(loads)
-    sum_ct = sum(loads)
-    active = [l for l in loads if l > 0]
-    avg_ct = sum_ct / len(active) if active else 0
+
+    # sum_ct = sum of per-order completion times (cumulative within each queue).
+    # Each order finishes after all preceding orders on the same conveyor are done,
+    # so SPT (short first) gives earlier completions than LPT (long first).
+    sum_ct = 0
+    for c in range(n_conveyors):
+        cumtime = 0
+        for order_idx in assignment[c]:
+            cumtime += processing_times[order_idx]
+            sum_ct  += cumtime
+
+    n_orders = sum(len(assignment[c]) for c in range(n_conveyors))
+    avg_ct   = sum_ct / n_orders if n_orders else 0
     return makespan, sum_ct, avg_ct
 
 
