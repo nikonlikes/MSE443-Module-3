@@ -1,0 +1,174 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=1in]{geometry}
+
+\title{MIP Formulation}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Sets and indices}
+\begin{itemize}
+  \item $B = \{1,2,3,4\}$: belts (cascade order, 1 upstream, 4 downstream).
+  \item $O$: set of orders.
+  \item $I$: set of physical items (each item has a unique id, type, and tote).
+  \item $T$: set of item types.
+  \item $K = \{1,\ldots,N\}$: conveyor positions; $N = |I|$.
+  \item $i(k)$: item at position $k \in K$.
+  \item $\tau(i)$: type of item $i \in I$.
+  \item $p(i)$: conveyor position of item $i$ (so $p(i) = k$ if $i = i(k)$).
+\end{itemize}
+
+\section{Parameters}
+\begin{itemize}
+  \item $d_{o,t}$: demand (quantity) of type $t \in T$ for order $o \in O$; $d_{o,t}=0$ if order $o$ does not need type $t$.
+  \item $\alpha, \beta, \gamma$: time coefficients for pick time.
+  \item $M_{\text{time}}$: big-$M$ constant used in time constraints.
+  \item $\overline{M}$: big-$M$ constant used in ordering/position constraints.
+\end{itemize}
+
+\section{Decision variables}
+\begin{align*}
+  y_{b,o} &\in \{0,1\} && \forall b \in B,\; o \in O
+  && \text{1 if order $o$ is assigned to belt $b$} \\
+  w_{b,i,o} &\in \{0,1\} && \forall b \in B,\; i \in I,\; o \in O
+  && \text{1 if belt $b$ picks item $i$ for order $o$} \\
+  f_{b,o} &\in [1,N] && \forall b \in B,\; o \in O
+  && \text{first conveyor position where belt $b$ picks for $o$} \\
+  \ell_{b,o} &\in [1,N] && \forall b \in B,\; o \in O
+  && \text{last conveyor position where belt $b$ picks for $o$} \\
+  z_{b,o_1,o_2} &\in \{0,1\} && \forall b \in B,\; o_1,o_2 \in O,\; o_1 < o_2
+  && \text{1 if on belt $b$ order $o_1$ finishes before $o_2$ starts} \\
+  r_{b,o,t,k} &\in \mathbb{Z}_{\ge 0} && \forall b \in B,\; o \in O,\; t \in T,\; k \in \{0,\ldots,N\}
+  && \text{remaining demand of type $t$ for $(b,o)$ after $1..k$} \\
+  h_{b,o,t,k} &\in \{0,1\} && \forall b \in B,\; o \in O,\; t \in T,\; k \in \{0,\ldots,N-1\}
+  && \text{1 if $r_{b,o,t,k} > 0$} \\
+  U_{b,k} &\in \{0,1\} && \forall b \in B \setminus \{1\},\; k \in K
+  && \text{1 if some upstream belt still needs the type at $k$} \\
+  TIME &\in \mathbb{R}_{\ge 0}
+  && \text{system completion time.}
+\end{align*}
+For $(o,t)$ with $d_{o,t}=0$, the variables $w_{b,i,o}$ with $\tau(i)=t$ are effectively fixed to $0$.
+
+\section{Objective function}
+\begin{equation}
+  \min \; TIME.
+\end{equation}
+
+\section{Constraints}
+
+\subsection{Order--belt assignment}
+Each order is assigned to exactly one belt:
+\begin{equation}
+  \sum_{b \in B} y_{b,o} = 1
+  \qquad \forall o \in O.
+\end{equation}
+
+\subsection{Item usage and demand}
+Each physical item can be used at most once:
+\begin{equation}
+  \sum_{b \in B} \sum_{o \in O} w_{b,i,o} \le 1
+  \qquad \forall i \in I.
+\end{equation}
+Picks are only allowed if the order is assigned to that belt:
+\begin{equation}
+  w_{b,i,o} \le y_{b,o}
+  \qquad \forall b \in B,\; i \in I,\; o \in O.
+\end{equation}
+Demand satisfaction for each order and type:
+\begin{equation}
+  \sum_{b \in B} \sum_{\substack{i \in I \\ \tau(i)=t}} w_{b,i,o}
+  = d_{o,t}
+  \qquad \forall (o,t) \text{ with } d_{o,t} > 0.
+\end{equation}
+
+\subsection{Order sequencing on each belt}
+First and last pick positions are consistent with picks. For all $b \in B$, $o \in O$, $k \in K$ with $i_k = i(k)$:
+\begin{align}
+  f_{b,o} &\le k + \overline{M}\,\bigl( 1 - w_{b,i_k,o} \bigr), \\
+  \ell_{b,o} &\ge k - \overline{M}\,\bigl( 1 - w_{b,i_k,o} \bigr).
+\end{align}
+Non-overlapping order intervals on each belt. For all $b \in B$ and $o_1,o_2 \in O$ with $o_1 < o_2$:
+\begin{align}
+  \ell_{b,o_1} &\le
+  f_{b,o_2}
+  +
+  \overline{M}
+  \bigl(
+    1 - z_{b,o_1,o_2}
+    + (1 - y_{b,o_1})
+    + (1 - y_{b,o_2})
+  \bigr), \\
+  \ell_{b,o_2} &\le
+  f_{b,o_1}
+  +
+  \overline{M}
+  \bigl(
+    z_{b,o_1,o_2}
+    + (1 - y_{b,o_1})
+    + (1 - y_{b,o_2})
+  \bigr).
+\end{align}
+If $y_{b,o_1}=y_{b,o_2}=1$, these ensure that either order $o_1$ finishes before $o_2$ starts or vice versa, so their pick intervals do not overlap on belt $b$.
+
+\subsection{Remaining-demand flow}
+Initial remaining demand (for $d_{o,t}>0$):
+\begin{align}
+  r_{b,o,t,0} &\le d_{o,t}\, y_{b,o},
+  \\
+  r_{b,o,t,0} &\ge d_{o,t}\, y_{b,o} - d_{o,t} (1 - y_{b,o}),
+  \qquad \forall b \in B,\; o \in O,\; t \in T \text{ with } d_{o,t}>0.
+\end{align}
+Thus $r_{b,o,t,0}=d_{o,t}$ if $y_{b,o}=1$, and $r_{b,o,t,0}=0$ if $y_{b,o}=0$.
+
+Flow along the conveyor. Let $i_k = i(k)$ and $t_k = \tau(i_k)$. For $k=1,\ldots,N$:
+\begin{equation}
+  r_{b,o,t,k} =
+  \begin{cases}
+    r_{b,o,t,k-1} - w_{b,i_k,o}, & \text{if } t = t_k, \\
+    r_{b,o,t,k-1},               & \text{if } t \neq t_k,
+  \end{cases}
+  \qquad
+  \forall b \in B,\; o \in O,\; t \in T \text{ with } d_{o,t}>0.
+\end{equation}
+
+Linking $r$ and $h$ (for $d_{o,t}>0$): $h_{b,o,t,k} = 1$ if and only if $r_{b,o,t,k} \ge 1$:
+\begin{align}
+  r_{b,o,t,k} &\le d_{o,t}\, h_{b,o,t,k}, \\
+  r_{b,o,t,k} &\ge h_{b,o,t,k},
+  \qquad \forall b \in B,\; o \in O,\; t \in T,\; k = 0,\ldots,N-1 \text{ with } d_{o,t}>0.
+\end{align}
+
+\subsection{Greedy cascade (upstream priority)}
+For belts $b>1$, $U_{b,k}$ indicates whether any upstream belt $b' < b$ still needs the type at position $k$. For $b \in B \setminus\{1\}$, $k \in K$, with $t_k = \tau(i(k))$:
+\begin{equation}
+  U_{b,k} \;\ge\; h_{b',o,t_k,k-1}
+  \qquad \forall b' \in B \text{ with } b' < b,\; \forall o \in O \text{ such that } d_{o,t_k}>0.
+\end{equation}
+If $U_{b,k}=1$, belt $b$ is forbidden from picking item $i(k)$:
+\begin{equation}
+  \sum_{o \in O} w_{b,i(k),o} \;\le\; 1 - U_{b,k}
+  \qquad \forall b \in B \setminus\{1\},\; k \in K.
+\end{equation}
+
+\subsection{Time constraints}
+Pick time for belt $b$ and item $i$ is modeled as
+\[
+  \text{pick\_time}(b,i)
+  \;=\;
+  \alpha\, p(i) + \beta\, (b-1) + \gamma.
+\]
+For all $b \in B$, $i \in I$, $o \in O$:
+\begin{equation}
+  TIME \;\ge\;
+  \alpha\, p(i) + \beta\, (b-1) + \gamma
+  \;-\;
+  M_{\text{time}} \bigl( 1 - w_{b,i,o} \bigr).
+\end{equation}
+If $w_{b,i,o}=1$, this forces $TIME$ to be at least the pick time; if $w_{b,i,o}=0$, the constraint is relaxed by the big-$M$ term.
+
+
+\end{document}
+
