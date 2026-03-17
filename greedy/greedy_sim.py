@@ -1,28 +1,28 @@
-"""
+    """
 MSE 433 - Module 3: Warehousing
 Greedy Marginal Gain Heuristic — Tote Sequencing Simulation
 
 === BELT TIMING MODEL ===
   Layout (clockwise from LOAD):
     LOAD (top-left corner)
-      → 3s → Conv 0 (midpoint of top belt)
-      → 7.5s → corner → 3s → Conv 1 (midpoint of right belt)
-      → 7.5s → corner → 3s → Conv 2 (midpoint of bottom belt)
-      → 7.5s → corner → 3s → Conv 3 (midpoint of left belt)
+      → 3.5s → Conv 0 (midpoint of top belt)
+      → 9.5s → corner → 3.5s → Conv 1 (midpoint of right belt)
+      → 9.5s → corner → 3.5s → Conv 2 (midpoint of bottom belt)
+      → 9.5s → corner → 3.5s → Conv 3 (midpoint of left belt)
 
   Travel time from LOAD to each conveyor:
-    Conv 0:  3.0s
-    Conv 1: 13.5s
-    Conv 2: 24.0s
-    Conv 3: 34.5s
+    Conv 0:  3.5s
+    Conv 1: 16.5s
+    Conv 2: 29.5s
+    Conv 3: 42.5s
 
   Item placement timing:
-    - Items placed one at a time with 3s buffer between consecutive items
-    - First item of each tote also has 3s buffer from last item of previous tote
-      (i.e., there is NO extra inter-tote gap beyond the standard 3s item spacing)
+    - Items placed one at a time with 4.5s buffer between consecutive items
+    - First item of each tote also has 4.5s buffer from last item of previous tote
+      (i.e., there is NO extra inter-tote gap beyond the standard 4.5s item spacing)
     - Item placed at belt_time T going to Conv c arrives at T + TRAVEL[c]
 
-  Tote clearance: next item can be placed 3s after the previous one.
+  Tote clearance: next item can be placed 4.5s after the previous one.
   The belt "clears" (all items delivered) at the latest arrival time across all items.
 
 === THREE DECISIONS ===
@@ -49,16 +49,16 @@ import os
 # ─────────────────────────────────────────────────────────────────────────────
 # TIMING CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
-ITEM_BUFFER        = 3.0   # seconds between consecutive item placements (and before first item)
-BELT_TO_CORNER     = 7.5   # seconds from midpoint of one belt side to the next corner
-CORNER_TO_MID      = 3.0   # seconds from corner to midpoint of next belt (= travel to conv)
+ITEM_BUFFER        = 4.5   # seconds between consecutive item placements (and before first item)
+BELT_TO_CORNER     = 9.5   # seconds for an item to cross a belt (midpoint to next corner)
+CORNER_TO_MID      = 3.5   # seconds for an item to be picked by belt (corner to midpoint of next belt)
 
 # Travel time from LOAD position to each conveyor's midpoint
 TRAVEL = {
-    0:  3.0,          # LOAD → Conv 0
-    1: 13.5,          # LOAD → Conv 1  (3 + 7.5 + 3)
-    2: 24.0,          # LOAD → Conv 2  (13.5 + 7.5 + 3)
-    3: 34.5,          # LOAD → Conv 3  (24 + 7.5 + 3)
+    0:  3.5,          # LOAD → Conv 0
+    1: 16.5,          # LOAD → Conv 1  (3.5 + 9.5 + 3.5)
+    2: 29.5,          # LOAD → Conv 2  (16.5 + 9.5 + 3.5)
+    3: 42.5,          # LOAD → Conv 3  (29.5 + 9.5 + 3.5)
 }
 
 NUM_CONVEYORS  = 4
