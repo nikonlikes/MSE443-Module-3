@@ -50,10 +50,11 @@ import time as time_module
 # ─────────────────────────────────────────────────────────────────────────────
 # TUNABLE PARAMETERS  (calibrate after physical conveyor testing)
 # ─────────────────────────────────────────────────────────────────────────────
-TIME_PER_SEGMENT      = 7.5   # seconds between adjacent belt positions
+TIME_PER_SEGMENT      = 9.5   # seconds between adjacent belt positions
 LOOP_TIME             = 4 * TIME_PER_SEGMENT  # full belt circulation (80 s)
-TOTE_LOAD_TIME        = 3.0    # seconds to physically place a tote on the belt
-TIME_PER_ITEM_SPACING = 3.0    # seconds between consecutive items placed on belt
+TOTE_LOAD_TIME        = 0.0    # seconds to physically place a tote on the belt
+TIME_PER_ITEM_SPACING = 4.5    # seconds between consecutive items placed on belt
+PICK_TIME_PER_ITEM    = 3.5    # seconds for conveyor arm/bin to pick one item
 NUM_CONVEYORS         = 4
 NUM_ITEM_TYPES        = 8
 
@@ -186,8 +187,13 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
         return queues[ci][queue_pos[ci]] if queue_pos[ci] < len(queues[ci]) else None
 
     order_completion_times = {}
-    current_time = 0.0
+    # Add an initial buffer before the very first item placement.
+    # (Spacing between subsequent items is already handled by TIME_PER_ITEM_SPACING.)
+    current_time = TIME_PER_ITEM_SPACING
     event_log    = []
+    # When the conveyor is next available to pick an item (models pick service time).
+    # Keyed by conveyor index (0..NUM_CONVEYORS-1).
+    conv_pick_cursor = {ci: 0.0 for ci in range(NUM_CONVEYORS)}
 
     for tote_id in tote_sequence:
         tote_load_start = current_time + TOTE_LOAD_TIME
@@ -221,18 +227,21 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
 
         # Compute placement / arrival times
         belt_cursor  = tote_load_start
-        conv_last_arr = {}
+        conv_last_pick_finish = {}
 
         for ci, counts in rows:
             total = sum(counts)
             for k in range(total):
                 place_t   = belt_cursor + k * TIME_PER_ITEM_SPACING
                 arrival_t = place_t + TIME_PER_SEGMENT * (ci + 1)
-                conv_last_arr[ci] = max(conv_last_arr.get(ci, 0), arrival_t)
+                pick_start  = max(arrival_t, conv_pick_cursor[ci])
+                pick_finish = pick_start + PICK_TIME_PER_ITEM
+                conv_pick_cursor[ci] = pick_finish
+                conv_last_pick_finish[ci] = max(conv_last_pick_finish.get(ci, 0.0), pick_finish)
             belt_cursor += total * TIME_PER_ITEM_SPACING
 
         # Deliver items and check order completions
-        for ci, last_arr in conv_last_arr.items():
+        for ci, last_pick_finish in conv_last_pick_finish.items():
             oid = active_order(ci)
             if oid is None or oid in order_completion_times:
                 continue
@@ -243,7 +252,7 @@ def compute_makespan(orders, totes, conv_queues, tote_sequence,
                     remaining[oid][item_type_idx] -= qty
 
             if all(v <= 0 for v in remaining[oid].values()):
-                order_completion_times[oid] = last_arr
+                order_completion_times[oid] = last_pick_finish
                 queue_pos[ci] += 1
 
         current_time = belt_cursor
@@ -648,74 +657,6 @@ def print_solution(label, queues, tote_seq, makespan, completion_times):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MOCK DATA EXAMPLE
-# ─────────────────────────────────────────────────────────────────────────────
-
-def run_mock_example():
-    """
-    Small self-contained example: 4 orders, 3 totes, 4 conveyors.
-    Demonstrates that the local search can find improving moves.
-
-    Orders:
-      O1: 2x circle  + 1x pentagon  (3 items)
-      O2: 3x trapezoid              (3 items)
-      O3: 1x circle  + 2x triangle  (3 items)
-      O4: 2x pentagon               (2 items)
-
-    Totes (shared):
-      T1: O1 2x circle,  O3 1x circle       <- multi-order
-      T2: O1 1x pentagon, O2 3x trapezoid   <- multi-order
-      T3: O3 2x triangle, O4 2x pentagon    <- multi-order
-
-    Because every tote is shared, all four orders must be simultaneously
-    active when any tote loads => one order per conveyor works.
-    """
-    print("\n" + "=" * 68)
-    print("  MOCK DATA EXAMPLE (4 orders, 3 totes)")
-    print("=" * 68)
-
-    mock_orders = {
-        1: {'items': [(0, 2), (1, 1)], 'total_items': 3},
-        2: {'items': [(2, 3)],          'total_items': 3},
-        3: {'items': [(0, 1), (3, 2)], 'total_items': 3},
-        4: {'items': [(1, 2)],          'total_items': 2},
-    }
-
-    mock_totes = {
-        1: [{'order': 1, 'item_type': 0, 'quantity': 2},
-            {'order': 3, 'item_type': 0, 'quantity': 1}],
-        2: [{'order': 1, 'item_type': 1, 'quantity': 1},
-            {'order': 2, 'item_type': 2, 'quantity': 3}],
-        3: [{'order': 3, 'item_type': 3, 'quantity': 2},
-            {'order': 4, 'item_type': 1, 'quantity': 2}],
-    }
-
-    init_queues   = [[1], [2], [3], [4]]
-    init_tote_seq = [1, 2, 3]
-
-    ms0, res0 = compute_makespan(mock_orders, mock_totes,
-                                 init_queues, init_tote_seq)
-    print(f"\n  Initial queues:   {init_queues}")
-    print(f"  Initial tote seq: {init_tote_seq}")
-    print(f"  Initial makespan: {ms0:.1f}s\n")
-
-    best_q, best_ts, best_ms, best_res, hist = local_search(
-        mock_orders, mock_totes, init_queues, init_tote_seq,
-        max_iterations=50, verbose=True
-    )
-
-    print(f"\n  Final queues:   {best_q}")
-    print(f"  Final tote seq: {best_ts}")
-    print(f"  Final makespan: {best_ms:.1f}s")
-    if ms0 != float('inf') and best_ms != float('inf'):
-        imp = ms0 - best_ms
-        pct = (imp / ms0) * 100 if ms0 > 0 else 0
-        print(f"  Improvement:    {imp:.1f}s ({pct:.1f}%)")
-
-    return best_ms
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -724,10 +665,7 @@ if __name__ == '__main__':
     print("  MSE 433 - Local Search for Warehousing Optimization")
     print("=" * 68)
 
-    # ── 1. Run mock example ──────────────────────────────────────────────
-    run_mock_example()
-
-    # ── 2. Load real dataset ─────────────────────────────────────────────
+    # ── 1. Load real dataset ─────────────────────────────────────────────
     print("\n\n" + "=" * 68)
     print("  REAL DATASET")
     print("=" * 68)
@@ -770,23 +708,14 @@ if __name__ == '__main__':
                    init_queues, init_tote_seq, init_ms,
                    init_res['order_completion_times'])
 
-    # ── 4. Greedy initial tote sequence ──────────────────────────────────
-    greedy_seq = greedy_tote_sequence(orders, totes, init_queues)
-    greedy_ms, greedy_res = compute_makespan(
-        orders, totes, init_queues, greedy_seq)
-
-    print_solution("GREEDY: marginal-gain tote ordering",
-                   init_queues, greedy_seq, greedy_ms,
-                   greedy_res['order_completion_times'])
-
-    # ── 5. Local search from greedy solution ─────────────────────────────
+    # ── 4. Local search from round-robin initialization ──────────────────
     print("\n" + "=" * 68)
-    print("  RUNNING LOCAL SEARCH (starting from greedy solution)")
+    print("  RUNNING LOCAL SEARCH (starting from round-robin initialization)")
     print("=" * 68 + "\n")
 
     t0 = time_module.time()
     best_q, best_ts, best_ms, best_res, history = local_search(
-        orders, totes, init_queues, greedy_seq,
+        orders, totes, init_queues, init_tote_seq,
         max_iterations=1000, verbose=True
     )
     elapsed = time_module.time() - t0
@@ -794,21 +723,6 @@ if __name__ == '__main__':
     print_solution(f"LOCAL SEARCH RESULT ({elapsed:.2f}s wall time)",
                    best_q, best_ts, best_ms,
                    best_res['order_completion_times'])
-
-    # ── 6. Comparison ─────────────────────────────────────────────────────
-    print(f"\n{'='*68}")
-    print("  COMPARISON")
-    print(f"{'='*68}")
-    print(f"  {'Method':<45} {'Makespan':>10}")
-    print(f"  {'-'*45} {'-'*10}")
-
-    for label, ms in [
-        ("Baseline (round-robin)", init_ms),
-        ("Greedy tote sequence", greedy_ms),
-        ("Local Search", best_ms)
-    ]:
-        ms_str = f"{ms:.1f}s" if ms != float('inf') else "INF"
-        print(f"  {label:<45} {ms_str:>10}")
 
     # ── 7. Write output files ────────────────────────────────────────────
     print(f"\n{'='*68}")
