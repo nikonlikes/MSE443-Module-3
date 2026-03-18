@@ -14,13 +14,16 @@ ranDataGen copy/                    # All 90 generated datasets (used for batch 
   large sized samples/              # 30 datasets
 
 scheduling_heuristic/               # SPT & LPT batch runner
+  Scripts/                         # batch runner entrypoint
   outputs/simulation_results.csv   # Results for all 90 datasets
 
 greedy/                             # Greedy heuristic batch runner
   outputs/simulation_results.csv
 
 local_search/                       # Local Search batch runner
-  simulations/simulation_results.csv
+  scripts/                          # local search implementation + batch runner
+  simulations/simulation_results.csv # precomputed results used by the dashboard
+  outputs/simulation_results.csv   # where `run_local_search_batch.py` writes if re-run
 
 comparison_output/                  # Aggregated cross-method comparison CSVs
 dashboard.py                        # Streamlit dashboard
@@ -50,7 +53,7 @@ Each heuristic has its own batch script that reads all 90 datasets and writes a 
 
 **SPT & LPT:**
 ```bash
-python run_scheduling_heuristic_batch.py
+python scheduling_heuristic/Scripts/run_scheduling_heuristic_batch.py
 # Output: scheduling_heuristic/outputs/simulation_results.csv
 ```
 
@@ -63,10 +66,12 @@ python greedy/greedy_sim.py
 **Local Search:**
 ```bash
 python local_search/scripts/run_local_search_batch.py
-# Output: local_search/simulations/simulation_results.csv
+# Output (script): local_search/outputs/simulation_results.csv
+# Note (dashboard): dashboard reads local_search/simulations/simulation_results.csv
 ```
 
-All three scripts must be run before the dashboard's "Results & Analysis" page will load correctly.
+SPT/LPT, Greedy, and Local Search CSVs must exist for the dashboard's "Results & Analysis" page to populate.
+For Local Search specifically, ensure your generated CSV matches the folder the dashboard expects.
 
 ---
 
@@ -95,3 +100,19 @@ Loads the pre-computed batch results and shows:
 
 ### Run on Your Data
 Upload your own three CSV files (`order_itemtypes`, `order_quantities`, `orders_totes`) and run all four heuristics live. You can adjust timing parameters (belt segment time, tote load time, item spacing) and Local Search iteration count before running.
+
+Expected CSV format (for all 3 files):
+- **No headers**.
+- Each row corresponds to an order (1-indexed order id in code).
+- Each column corresponds to an item slot; the same row/column position across the 3 files must match the same item.
+- Cells may be blank; blank entries are treated as “no item in that slot”.
+
+For convenience, `generate_sample_uploads.py` can generate small/medium/large example CSV folders under `sample_uploads/` for testing the dashboard.
+
+Notes about implementation:
+- `dashboard.py` runs self-contained heuristics for uploaded data (it does not call the batch scripts).
+- For "Results & Analysis", `dashboard.py` loads precomputed CSV outputs from `scheduling_heuristic/outputs`, `greedy/outputs`, and `local_search/simulations`.
+- In "Run on Your Data", SPT/LPT completion times are computed in item-count units (cumulative items per conveyor), while Greedy/Local Search are simulated in seconds.
+- Local Search objectives differ slightly:
+  - Batch local search optimizes **makespan** (while also reporting sum of completion times).
+  - Dashboard local search optimizes **sum of completion times**.
