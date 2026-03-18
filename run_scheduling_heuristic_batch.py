@@ -1,17 +1,30 @@
 """
 Batch runner: execute SPT and LPT scheduling heuristics on all 90 generated
 datasets (30 small + 30 medium + 30 large) and write simulation_results.csv.
+
+SPT and LPT now use the same belt simulation as the Greedy heuristic, producing
+real-second completion times comparable across all four methods.
+
+Order-to-conveyor assignment uses the constraint-satisfying greedy graph coloring
+(orders sharing a tote must be on different conveyors). Within each conveyor queue:
+  - SPT: orders sorted by total items ascending  (shortest processing time first)
+  - LPT: orders sorted by total items descending (longest processing time first)
+
+Tote sequence: sorted by tote ID (ascending).
 """
 
 import os
 import csv
-import pandas as pd
-import numpy as np
+import sys
 
-N_CONVEYORS = 4
-N_SHAPE_TYPES = 8
-SHAPE_NAMES = ['circle', 'pentagon', 'trapezoid', 'triangle',
-               'star', 'moon', 'heart', 'cross']
+# Import the belt simulation from greedy_sim
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'greedy'))
+from greedy_sim import (
+    load_data_from_csv,
+    build_constraint_satisfying_queues,
+    greedy_tote_sequence,
+    simulate,
+)
 
 SAMPLE_CONFIGS = [
     ("small",  os.path.join("ranDataGen copy", "small sized samples")),
@@ -20,72 +33,15 @@ SAMPLE_CONFIGS = [
 ]
 
 OUTPUT_ROOT = os.path.join("scheduling_heuristic", "outputs")
-N_DATASETS = 30
+N_DATASETS  = 30
 
 
-def load_dataset(folder, dataset_id):
-    it_path = os.path.join(folder, f"order_itemtypes_{dataset_id}.csv")
-    qt_path = os.path.join(folder, f"order_quantities_{dataset_id}.csv")
-    if not os.path.exists(it_path):
-        return None, None
-    item_types_df = pd.read_csv(it_path, header=None)
-    quantities_df = pd.read_csv(qt_path, header=None)
-
-    orders = []
-    processing_times = []
-    for i in range(len(item_types_df)):
-        types = item_types_df.iloc[i].dropna().astype(int).tolist()
-        qtys = quantities_df.iloc[i].dropna().astype(int).tolist()
-        orders.append(list(zip(types, qtys)))
-        processing_times.append(sum(qtys))
-    return orders, processing_times
-
-
-def schedule_orders(processing_times, n_conveyors, reverse=False):
-    sorted_indices = sorted(
-        range(len(processing_times)),
-        key=lambda i: processing_times[i],
-        reverse=reverse,
-    )
-    loads = [0] * n_conveyors
-    assignment = {c: [] for c in range(n_conveyors)}
-    for order_idx in sorted_indices:
-        min_load = min(loads)
-        conveyor = loads.index(min_load)
-        assignment[conveyor].append(order_idx)
-        loads[conveyor] += processing_times[order_idx]
-    return assignment
-
-
-def compute_metrics(assignment, processing_times, n_conveyors):
-    # makespan = max conveyor load (unchanged)
-    loads    = [sum(processing_times[i] for i in assignment[c]) for c in range(n_conveyors)]
-    makespan = max(loads)
-
-    # sum_ct = sum of per-order completion times (cumulative within each queue).
-    # Each order finishes after all preceding orders on the same conveyor are done,
-    # so SPT (short first) gives earlier completions than LPT (long first).
-    sum_ct = 0
-    for c in range(n_conveyors):
-        cumtime = 0
-        for order_idx in assignment[c]:
-            cumtime += processing_times[order_idx]
-            sum_ct  += cumtime
-
-    n_orders = sum(len(assignment[c]) for c in range(n_conveyors))
-    avg_ct   = sum_ct / n_orders if n_orders else 0
-    return makespan, sum_ct, avg_ct
-
-
-def build_output_df(assignment, orders, n_conveyors):
-    rows = []
-    for c in range(n_conveyors):
-        for order_idx in assignment[c]:
-            counts = [0] * N_SHAPE_TYPES
-            for item_type, qty in orders[order_idx]:
-                counts[item_type] += qty
-            rows.append([c + 1] + counts)
-    return pd.DataFrame(rows, columns=['conv_num'] + SHAPE_NAMES)
+def sort_queues_by_pt(conv_queues, orders, reverse=False):
+    """Return new queues with orders within each queue sorted by total_items."""
+    return [
+        sorted(q, key=lambda oid: orders[oid]['total_items'], reverse=reverse)
+        for q in conv_queues
+    ]
 
 
 def main():
@@ -98,37 +54,46 @@ def main():
         print(f"{'='*60}")
 
         for dataset_id in range(1, N_DATASETS + 1):
-            orders, ptimes = load_dataset(folder, dataset_id)
-            if orders is None:
-                print(f"  SKIP {size} #{dataset_id} — files not found")
+            try:
+                orders, totes = load_data_from_csv(folder, dataset_id)
+            except Exception as e:
+                print(f"  SKIP {size} #{dataset_id} — {e}")
+                continue
+
+            if not orders or not totes:
+                print(f"  SKIP {size} #{dataset_id} — empty data")
                 continue
 
             n_orders = len(orders)
-            ds_dir = os.path.join(OUTPUT_ROOT, size, f"dataset_{dataset_id}")
-            os.makedirs(ds_dir, exist_ok=True)
+
+            # Constraint-satisfying assignment (shared by SPT and LPT)
+            base_queues, _ = build_constraint_satisfying_queues(orders, totes)
 
             for method_name, reverse in [("SPT", False), ("LPT", True)]:
-                assignment = schedule_orders(ptimes, N_CONVEYORS, reverse=reverse)
-                makespan, sum_ct, avg_ct = compute_metrics(
-                    assignment, ptimes, N_CONVEYORS
-                )
-                df_out = build_output_df(assignment, orders, N_CONVEYORS)
-                csv_path = os.path.join(ds_dir, f"input_{method_name}.csv")
-                df_out.to_csv(csv_path, index=False)
+                queues        = sort_queues_by_pt(base_queues, orders, reverse=reverse)
+                tote_sequence = greedy_tote_sequence(orders, totes, queues)
+                results       = simulate(tote_sequence, orders, totes, queues)
+
+                makespan = results['makespan']
+                sum_ct   = results['sum_completion_times']
+                avg_ct   = results['avg_completion_time']
 
                 all_results.append({
-                    "size": size,
-                    "dataset_id": dataset_id,
-                    "method": method_name,
-                    "makespan": makespan,
+                    "size":                 size,
+                    "dataset_id":           dataset_id,
+                    "method":               method_name,
+                    "makespan":             makespan if makespan != float('inf') else '',
                     "sum_completion_times": sum_ct,
-                    "avg_completion_time": avg_ct,
-                    "n_orders": n_orders,
+                    "avg_completion_time":  avg_ct   if avg_ct   != float('inf') else '',
+                    "n_orders":             n_orders,
                 })
 
-            spt_ms = all_results[-2]["makespan"]
-            lpt_ms = all_results[-1]["makespan"]
-            print(f"  {size:>6} #{dataset_id:<2}  SPT={spt_ms}  LPT={lpt_ms}  n_orders={n_orders}")
+            spt = all_results[-2]
+            lpt = all_results[-1]
+            print(f"  {size:>6} #{dataset_id:<2}  "
+                  f"SPT={spt['sum_completion_times']:.1f}s  "
+                  f"LPT={lpt['sum_completion_times']:.1f}s  "
+                  f"n_orders={n_orders}")
 
     out_path = os.path.join(OUTPUT_ROOT, "simulation_results.csv")
     fieldnames = [

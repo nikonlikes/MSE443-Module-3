@@ -459,18 +459,21 @@ def page_results():
     # ── Mean Sum Completion Times by Size & Method ─────────────────────────
     st.header("Mean Sum of Completion Times")
 
-    fig = px.bar(
-        agg.reset_index(),
-        x='Size', y='Mean',
-        color='Method', barmode='group',
-        error_y='Std',
-        category_orders={'Size': SIZE_ORDER, 'Method': METHOD_ORDER},
-        color_discrete_map=DISPLAY_COLORS,
-        labels={'Size': 'Dataset Size', 'Mean': 'Mean Sum Completion Times (s)'},
-        title='Mean Sum of Completion Times by Method and Dataset Size',
-    )
-    fig.update_layout(height=420)
-    st.plotly_chart(fig, use_container_width=True)
+    cols = st.columns(3)
+    for col, size in zip(cols, SIZE_ORDER):
+        size_agg = agg[agg['Size'] == size]
+        fig = px.bar(
+            size_agg,
+            x='Method', y='Mean',
+            color='Method',
+            error_y='Std',
+            category_orders={'Method': METHOD_ORDER},
+            color_discrete_map=DISPLAY_COLORS,
+            labels={'Mean': 'Mean Sum Completion Times (s)', 'Method': ''},
+            title=size.capitalize(),
+        )
+        fig.update_layout(height=380, showlegend=False)
+        col.plotly_chart(fig, use_container_width=True)
 
     # ── Winner Counts ────────────────────────────────────────────────────────
     st.header("Winner Counts (Best Sum Completion Times per Dataset)")
@@ -566,53 +569,66 @@ def page_results():
     # ── Key Takeaways ────────────────────────────────────────────────────────
     st.header("Key Takeaways")
 
-    # Compute ratios vs SPT dynamically from data
+    # Mean sum completion times — all methods side by side, relative to best
     means = (
         df.groupby(['size', 'method_display'])['sum_completion_times']
         .mean()
         .reset_index()
     )
-    spt_means = means[means['method_display'] == 'SPT'].set_index('size')['sum_completion_times']
 
-    ratio_rows = []
-    for _, row in means[means['method_display'] != 'SPT'].iterrows():
-        sz   = row['size']
-        spt  = spt_means.get(sz)
-        if spt and spt > 0:
-            ratio = row['sum_completion_times'] / spt
-            ratio_rows.append({
-                'Size':    sz.capitalize(),
-                'Method':  row['method_display'],
-                'Mean (s)': round(row['sum_completion_times'], 1),
-                'vs SPT':  f"{ratio:.1f}x",
+    pivot = means.pivot(index='size', columns='method_display', values='sum_completion_times')
+    pivot = pivot.reindex(SIZE_ORDER)[METHOD_ORDER]
+
+    summary_rows = []
+    for size in SIZE_ORDER:
+        row_vals = pivot.loc[size]
+        best_val = row_vals.min()
+        for method in METHOD_ORDER:
+            val = row_vals[method]
+            summary_rows.append({
+                'Size':         size.capitalize(),
+                'Method':       method,
+                'Mean (s)':     round(val, 1),
+                'vs Best':      f"{val / best_val:.2f}x" if val != best_val else 'BEST',
+                'Rank':         int(row_vals.rank()[method]),
             })
 
-    ratio_df = pd.DataFrame(ratio_rows)
-    if not ratio_df.empty:
-        ratio_df['Size'] = pd.Categorical(
-            ratio_df['Size'], [s.capitalize() for s in SIZE_ORDER], ordered=True
-        )
-        ratio_df['Method'] = pd.Categorical(ratio_df['Method'],
-                                             ['LPT', 'Greedy', 'Local Search'], ordered=True)
-        ratio_df = ratio_df.sort_values(['Size', 'Method'])
-        st.markdown("**Mean sum completion times relative to SPT (lower is better):**")
-        st.dataframe(ratio_df.set_index(['Size', 'Method']), use_container_width=True)
+    summary_df = pd.DataFrame(summary_rows)
+    summary_df['Size'] = pd.Categorical(
+        summary_df['Size'], [s.capitalize() for s in SIZE_ORDER], ordered=True
+    )
+    summary_df['Method'] = pd.Categorical(summary_df['Method'], METHOD_ORDER, ordered=True)
+    summary_df = summary_df.sort_values(['Size', 'Method'])
 
-    # Winner count summary text
+    def highlight_best(row):
+        return ['background-color: #d4edda; font-weight: bold'
+                if row['vs Best'] == 'BEST' else '' for _ in row]
+
+    st.markdown("**Mean sum of completion times by method and dataset size (lower is better):**")
+    st.dataframe(
+        summary_df.set_index(['Size', 'Method']).style.apply(highlight_best, axis=1),
+        use_container_width=True,
+    )
+
+    # Winner count summary
     spt_wins  = win_counts[win_counts['method'] == 'SPT']['wins'].sum()
     lpt_wins  = win_counts[win_counts['method'] == 'LPT']['wins'].sum()
     gr_wins   = win_counts[win_counts['method'] == 'Greedy']['wins'].sum()
     ls_wins   = win_counts[win_counts['method'] == 'Local Search']['wins'].sum()
     total     = 90
+    best_overall = max(
+        [('SPT', spt_wins), ('LPT', lpt_wins), ('Greedy', gr_wins), ('Local Search', ls_wins)],
+        key=lambda x: x[1]
+    )[0]
 
     st.markdown(f"""
 | Finding | Detail |
 |---|---|
+| **Best overall** | {best_overall} wins the most datasets ({max(spt_wins, lpt_wins, gr_wins, ls_wins)}/{total}) |
 | **SPT** | Wins {spt_wins}/{total} datasets total |
 | **LPT** | Wins {lpt_wins}/{total} datasets total |
 | **Greedy** | Wins {gr_wins}/{total} datasets total |
 | **Local Search** | Wins {ls_wins}/{total} datasets total |
-| **Statistical test** | Friedman test p < 0.001 for all sizes — methods are significantly different |
 """)
 
 
